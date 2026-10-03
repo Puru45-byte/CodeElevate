@@ -1,0 +1,225 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import {
+  Task,
+  TaskResource,
+} from "@/types/database";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  FileText,
+  Download,
+  Calendar,
+  Sparkles,
+  Layers,
+} from "lucide-react";
+import { toast } from "sonner";
+import { SubmitInternshipDialog } from "@/components/shared/SubmitInternshipDialog";
+
+interface TaskDetailContentProps {
+  task: Task & { module?: any; resources?: TaskResource[] };
+  computedStatus?: any;
+  submissions?: any[];
+  enrollmentId: string;
+}
+
+export function TaskDetailContent({
+  task,
+  enrollmentId,
+}: TaskDetailContentProps) {
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadResource = async (resourceId: string) => {
+    setDownloadingId(resourceId);
+    try {
+      const res = await fetch("/api/resources/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resourceId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.signedUrl) {
+        toast.error(data.error || "Could not retrieve download link");
+        return;
+      }
+      window.open(data.signedUrl, "_blank");
+    } catch {
+      toast.error("Failed to open resource");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto">
+      {/* ────────────────── TOP BREADCRUMB ────────────────── */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/dashboard/tasks"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to All Tasks</span>
+        </Link>
+
+        {task.module?.title && (
+          <span className="text-xs font-semibold text-slate-400">
+            {task.module.title}
+          </span>
+        )}
+      </div>
+
+      {/* ────────────────── TASK HEADER CARD ────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-bold text-slate-600">
+                Position: #{task.position || 1}
+              </Badge>
+              {task.is_required && (
+                <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 font-bold">
+                  Mandatory Milestone
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              {task.title}
+            </h1>
+          </div>
+
+          <Button
+            onClick={() => setIsSubmitModalOpen(true)}
+            className="rounded-xl text-xs font-bold h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 gap-2 shrink-0"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Submit Internship Work →</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* ────────────────── 2 TABS: DESCRIPTION, RESOURCES ────────────────── */}
+      <Tabs defaultValue="description" className="space-y-6">
+        <TabsList className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm flex h-auto gap-1">
+          <TabsTrigger
+            value="description"
+            className="rounded-xl px-4 py-2 text-xs font-bold data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
+          >
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            <span>Description & Requirements</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="resources"
+            className="rounded-xl px-4 py-2 text-xs font-bold data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            <span>Study Resources</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ──────── TAB 1: DESCRIPTION & NUMBERED REQUIREMENTS ──────── */}
+        <TabsContent value="description" className="space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                Task Overview
+              </h3>
+              <div className="mt-2 text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                {task.description}
+              </div>
+            </div>
+
+            {/* Numbered Requirements */}
+            {task.requirements && task.requirements.length > 0 && (
+              <div className="border-t border-slate-100 pt-6 space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                  Deliverable Requirements
+                </h3>
+                <ol className="space-y-3">
+                  {task.requirements.map((req, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm text-slate-700">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700 font-bold text-xs border border-blue-100">
+                        {idx + 1}
+                      </span>
+                      <span className="pt-0.5 leading-relaxed">{req}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ──────── TAB 2: RESOURCES ──────── */}
+        <TabsContent value="resources" className="space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                Learning Materials & Slides
+              </h3>
+              <p className="text-xs text-slate-500">
+                Presentation slides (PPT), reference code snippets, and guides.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
+                  Module Presentation Deck
+                </span>
+                <h4 className="text-xs font-bold text-slate-900">{task.title} - Slide Deck (PPT)</h4>
+                <p className="text-[11px] text-slate-500">
+                  Official slides with architectural diagrams and step-by-step walkthrough.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownloadResource(task.id)}
+                  disabled={downloadingId === task.id}
+                  className="w-full text-xs font-bold rounded-xl h-8 gap-1.5 mt-2"
+                >
+                  <Download className="h-3.5 w-3.5 text-blue-600" />
+                  <span>Download Slide Deck</span>
+                </Button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                  Specification & Reference
+                </span>
+                <h4 className="text-xs font-bold text-slate-900">Task Deliverable Guide (PDF)</h4>
+                <p className="text-[11px] text-slate-500">
+                  Code quality criteria, sample API contracts, and testing instructions.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownloadResource(task.id)}
+                  disabled={downloadingId === task.id}
+                  className="w-full text-xs font-bold rounded-xl h-8 gap-1.5 mt-2"
+                >
+                  <Download className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Download Guide</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* ────────────────── SUBMISSION DIALOG ────────────────── */}
+      <SubmitInternshipDialog
+        isOpen={isSubmitModalOpen}
+        onClose={() => setIsSubmitModalOpen(false)}
+        enrollmentId={enrollmentId}
+        internshipTitle={task.module?.title || task.title}
+      />
+    </div>
+  );
+}
