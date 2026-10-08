@@ -74,6 +74,11 @@ export const step5AccountSchema = z
       ),
     confirmPassword: z.string().min(1, "Confirm Password is required"),
     referralCode: z.string().trim().optional().or(z.literal("")),
+    agreeToTerms: z.literal(true, {
+      errorMap: () => ({
+        message: "You must agree to the Terms & Conditions and Privacy Policy",
+      }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -133,6 +138,14 @@ export const fullApplicationSchema = z
     password: z.string().optional().or(z.literal("")),
     confirmPassword: z.string().optional().or(z.literal("")),
     referralCode: z.string().trim().optional().or(z.literal("")),
+    agreeToTerms: z
+      .literal(true, {
+        errorMap: () => ({
+          message: "You must agree to the Terms & Conditions and Privacy Policy",
+        }),
+      })
+      .optional()
+      .or(z.literal(true)),
   })
   .refine(
     (data) => {

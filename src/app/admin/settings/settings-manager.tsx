@@ -22,8 +22,8 @@ import { toast } from "sonner";
 export function SettingsManager() {
   const [orgName, setOrgName] = useState("CodeElevate EdTech Platform");
   const [tagline, setTagline] = useState("Learn. Build. Get Certified.");
-  const [supportEmail, setSupportEmail] = useState("support@codeelevate.tech");
-  const [supportPhone, setSupportPhone] = useState("+91 98765 43210");
+  const [supportEmail, setSupportEmail] = useState("codeelevate.team@outlook.com");
+  const [supportPhone, setSupportPhone] = useState("+91 7972399690");
   const [address, setAddress] = useState(
     "Bangalore Technology Corridor, Karnataka, India"
   );

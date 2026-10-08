@@ -178,6 +178,8 @@ export async function POST(request: Request) {
       passout_year: data.passoutYear.trim(),
       referral_code: data.referralCode ? data.referralCode.trim() : null,
       role: "student",
+      consent_at: new Date().toISOString(),
+      consent_version: "October 2026",
       updated_at: new Date().toISOString(),
     };
 

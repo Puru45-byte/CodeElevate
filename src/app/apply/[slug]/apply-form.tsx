@@ -143,6 +143,7 @@ export function ApplyForm({
       password: "",
       confirmPassword: "",
       referralCode: "",
+      agreeToTerms: true,
     },
   });
 
@@ -1321,9 +1322,46 @@ export function ApplyForm({
                 />
               </div>
 
+              {/* Consent checkbox */}
+              <div className="space-y-1 pt-2">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    {...form5.register("agreeToTerms")}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    I agree to CodeElevate&apos;s{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 font-semibold underline hover:text-blue-800"
+                    >
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 font-semibold underline hover:text-blue-800"
+                    >
+                      Privacy Policy
+                    </Link>
+                    . <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                {form5.formState.errors.agreeToTerms && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form5.formState.errors.agreeToTerms.message}
+                  </p>
+                )}
+              </div>
+
               {/* Trust statement */}
               <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-xs text-slate-500 leading-relaxed">
-                By submitting this application, you agree to CodeElevate&apos;s Terms of Service and Code of Conduct. Your account will be generated instantly and you will land in your student portal.
+                By submitting this application, your account will be created instantly and you will gain access to your student dashboard.
               </div>
             </div>
 

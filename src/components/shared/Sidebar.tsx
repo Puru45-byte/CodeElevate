@@ -12,6 +12,7 @@ import {
   Shield,
   CheckSquare,
   Layers,
+  MessageSquare,
   Sparkles,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
     { label: "Tasks", href: "/admin/tasks", icon: CheckSquare },
     { label: "Submissions", href: "/admin/submissions", icon: CheckSquare },
     { label: "Payments", href: "/admin/payments", icon: Layers },
+    { label: "Inquiries & Support", href: "/admin/messages", icon: MessageSquare },
     { label: "Certificates", href: "/admin/certificates", icon: Award },
     { label: "Certificate Templates", href: "/admin/templates", icon: Award },
     { label: "Notifications", href: "/admin/notifications", icon: Sparkles },

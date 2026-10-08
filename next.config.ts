@@ -34,6 +34,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/refunds",
+        destination: "/refund-policy",
+        permanent: true,
+      },
+      {
+        source: "/cancellation-and-refund",
+        destination: "/refund-policy",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     const securityHeaders: { key: string; value: string }[] = [
       {

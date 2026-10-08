@@ -21,6 +21,7 @@ import {
   ArrowRight,
   RotateCcw,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 declare global {
@@ -117,6 +118,7 @@ export function SubmitInternshipDialog({
   const [step, setStep] = useState<Step>("FORM");
   const [githubUrl, setGithubUrl] = useState("");
   const [comments, setComments] = useState("");
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingText, setLoadingText] = useState("Preparing submission...");
   const [isCheckoutActive, setIsCheckoutActive] = useState(false);
@@ -180,7 +182,7 @@ export function SubmitInternshipDialog({
           amount: order.amount,
           currency: order.currency || "INR",
           name: "CodeElevate",
-          description: `Evaluation Fee - ${internshipTitle}`,
+          description: "CodeElevate Internship Submission",
           order_id: order.orderId,
           prefill: {
             name: order.userName,
@@ -337,6 +339,7 @@ export function SubmitInternshipDialog({
           enrollmentId,
           githubUrl: githubUrl.trim(),
           comments: comments.trim() || null,
+          agreeToTerms: true,
         }),
       });
 
@@ -488,6 +491,39 @@ export function SubmitInternshipDialog({
                 />
               </div>
 
+              {/* Terms & Refund Policy Consent Checkbox */}
+              <div className="space-y-1 pt-1">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreeToTerms}
+                    onChange={(e) => setAgreeToTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    I agree to CodeElevate&apos;s{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 font-semibold underline hover:text-blue-800"
+                    >
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      href="/refund-policy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 font-semibold underline hover:text-blue-800"
+                    >
+                      Refund & Cancellation Policy
+                    </Link>
+                    . <span className="text-red-500">*</span>
+                  </span>
+                </label>
+              </div>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
@@ -500,7 +536,8 @@ export function SubmitInternshipDialog({
 
                 <Button
                   type="submit"
-                  className="rounded-xl text-xs font-bold h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white shadow-sm gap-1.5"
+                  disabled={!agreeToTerms || !githubUrl.trim()}
+                  className="rounded-xl text-xs font-bold h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white shadow-sm gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Continue →</span>
                 </Button>

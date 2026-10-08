@@ -28,6 +28,11 @@ const createOrderSchema = z.object({
     .max(500, "Comments cannot exceed 500 characters")
     .optional()
     .nullable(),
+  agreeToTerms: z.literal(true, {
+    errorMap: () => ({
+      message: "You must agree to the Terms & Conditions and Refund Policy to proceed.",
+    }),
+  }),
 });
 
 export async function POST(request: Request) {
@@ -249,6 +254,21 @@ export async function POST(request: Request) {
       }
     }
 
+    const { data: userProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("first_name, last_name, phone, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const fullName =
+      (userProfile
+        ? `${userProfile.first_name || ""} ${userProfile.last_name || ""}`.trim()
+        : null) ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "Student";
+    const phone = userProfile?.phone || user.user_metadata?.phone || "";
+
     return NextResponse.json({
       freeSubmission: false,
       orderId: razorpayOrderId,
@@ -259,12 +279,9 @@ export async function POST(request: Request) {
         process.env.RAZORPAY_KEY_ID ||
         "",
       user: {
-        name:
-          user.user_metadata?.full_name ||
-          user.email?.split("@")[0] ||
-          "Student",
-        email: user.email,
-        phone: user.user_metadata?.phone || "",
+        name: fullName,
+        email: userProfile?.email || user.email,
+        phone: phone,
       },
     });
   } catch (err: any) {
