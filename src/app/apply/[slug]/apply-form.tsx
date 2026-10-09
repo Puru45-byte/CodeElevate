@@ -49,6 +49,8 @@ import {
   Loader2,
   Building,
   Check,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addMonths, subDays, format } from "date-fns";
@@ -85,6 +87,18 @@ export function ApplyForm({
   );
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const [resumePreview, setResumePreview] = useState<string | null>(
+    existingProfile?.resume_url || null
+  );
+  const [resumeBase64, setResumeBase64] = useState<string | null>(null);
+  const [resumeFileName, setResumeFileName] = useState<string | null>(
+    existingProfile?.resume_file_name || null
+  );
+  const [resumeFileSize, setResumeFileSize] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [isResumeUploading, setIsResumeUploading] = useState<boolean>(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<{
@@ -92,6 +106,7 @@ export function ApplyForm({
     loginUrl?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate default dates
   const todayStr = format(new Date(), "yyyy-MM-dd");
@@ -117,6 +132,8 @@ export function ApplyForm({
       email: existingProfile?.email || "",
       whatsapp: existingProfile?.whatsapp || "",
       photoUrl: existingProfile?.photo_url || "",
+      resumeUrl: existingProfile?.resume_url || "",
+      resumeFileName: existingProfile?.resume_file_name || "",
     },
     step2: {
       address: existingProfile?.address || "",
@@ -176,6 +193,15 @@ export function ApplyForm({
           if (parsed.photoPreview) {
             setPhotoPreview(parsed.photoPreview);
           }
+          if (parsed.resumePreview) {
+            setResumePreview(parsed.resumePreview);
+          }
+          if (parsed.resumeFileName) {
+            setResumeFileName(parsed.resumeFileName);
+          }
+          if (parsed.resumeFileSize) {
+            setResumeFileSize(parsed.resumeFileSize);
+          }
         }
       } catch (e) {
         console.warn("Could not parse draft application data", e);
@@ -193,6 +219,9 @@ export function ApplyForm({
           step3: updated.step3,
           step4: updated.step4,
           photoPreview,
+          resumePreview,
+          resumeFileName,
+          resumeFileSize,
         };
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safeData));
       } catch (e) {
@@ -259,6 +288,45 @@ export function ApplyForm({
       const result = reader.result as string;
       setPhotoPreview(result);
       setPhotoBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Resume change handler
+  const handleResumeSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setResumeError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validation: PDF only
+    const isPdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setResumeError("Please select a valid PDF file (.pdf).");
+      return;
+    }
+
+    // Validation: Max 2 MB
+    if (file.size > 2 * 1024 * 1024) {
+      setResumeError("Resume file size must be less than 2 MB.");
+      return;
+    }
+
+    setIsResumeUploading(true);
+    const formattedSize = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setResumePreview(result);
+      setResumeBase64(result);
+      setResumeFileName(file.name);
+      setResumeFileSize(formattedSize);
+      setIsResumeUploading(false);
+    };
+    reader.onerror = () => {
+      setResumeError("Failed to read the PDF file. Please try again.");
+      setIsResumeUploading(false);
     };
     reader.readAsDataURL(file);
   };
@@ -348,6 +416,9 @@ export function ApplyForm({
       whatsapp: fullData.step1.whatsapp || "",
       photoUrl: fullData.step1.photoUrl || "",
       photoBase64: photoBase64 || undefined,
+      resumeUrl: fullData.step1.resumeUrl || (resumePreview && !resumePreview.startsWith("data:") ? resumePreview : ""),
+      resumeFileName: fullData.step1.resumeFileName || resumeFileName || "",
+      resumeBase64: resumeBase64 || undefined,
       address: fullData.step2.address || "",
       city: fullData.step2.city || "",
       state: fullData.step2.state || "",
@@ -632,6 +703,119 @@ export function ApplyForm({
                   {photoError && (
                     <p className="text-[11px] text-red-600 font-medium">
                       {photoError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Resume / CV Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="resumeInput" className="text-xs font-bold text-slate-700">
+                Resume / CV (Optional - max 2 MB)
+              </Label>
+              <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="relative h-20 w-20 shrink-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-md flex items-center justify-center">
+                  {isResumeUploading ? (
+                    <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                  ) : resumePreview ? (
+                    <FileText className="h-8 w-8 text-red-500" />
+                  ) : (
+                    <FileText className="h-8 w-8 text-slate-400" />
+                  )}
+                </div>
+                <div className="space-y-1.5 text-center sm:text-left flex-1 min-w-0">
+                  <input
+                    type="file"
+                    id="resumeInput"
+                    ref={resumeInputRef}
+                    accept="application/pdf"
+                    aria-label="Upload Resume"
+                    onChange={handleResumeSelect}
+                    className="hidden"
+                  />
+                  
+                  {resumePreview ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-center sm:justify-start gap-2">
+                        <span className="font-bold text-slate-900 text-xs line-clamp-1 max-w-[200px] sm:max-w-[260px]">
+                          {resumeFileName || "Student_Resume.pdf"}
+                        </span>
+                        {resumeFileSize && (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            ({resumeFileSize})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
+                        <a
+                          href={resumePreview}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100"
+                        >
+                          <span>View</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resumeInputRef.current?.click()}
+                          className="text-xs font-bold rounded-xl h-8 gap-1.5"
+                        >
+                          <Upload className="h-3.5 w-3.5 text-blue-600" />
+                          <span>Change Resume</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setResumePreview(null);
+                            setResumeBase64(null);
+                            setResumeFileName(null);
+                            setResumeFileSize(null);
+                            setResumeError(null);
+                            if (resumeInputRef.current) resumeInputRef.current.value = "";
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isResumeUploading}
+                        onClick={() => resumeInputRef.current?.click()}
+                        className="text-xs font-bold rounded-xl h-9 gap-1.5"
+                      >
+                        {isResumeUploading ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 text-blue-600 animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3.5 w-3.5 text-blue-600" />
+                            <span>Upload Resume</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-slate-400">
+                    PDF only. Max 2 MB. Upload your latest resume.
+                  </p>
+                  {resumeError && (
+                    <p className="text-[11px] text-red-600 font-medium">
+                      {resumeError}
                     </p>
                   )}
                 </div>

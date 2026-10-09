@@ -38,6 +38,8 @@ import {
   Loader2,
   Check,
   X,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -394,6 +396,35 @@ export function ApplicationsManager({
                   <p className="text-slate-500 text-[11px]">Passout Year: {selectedAppForView.profile?.passout_year}</p>
                 </div>
               </div>
+
+              {/* Resume / CV Card */}
+              {(selectedAppForView.resume_url || selectedAppForView.profile?.resume_url) && (
+                <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Student Resume / CV
+                  </h4>
+                  <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {selectedAppForView.resume_file_name || selectedAppForView.profile?.resume_file_name || "Student_Resume.pdf"}
+                        </p>
+                        <p className="text-[10px] text-slate-400">PDF Document</p>
+                      </div>
+                    </div>
+                    <a
+                      href={selectedAppForView.resume_url || selectedAppForView.profile?.resume_url || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shrink-0"
+                    >
+                      <span>View Resume</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Dates & Schedule */}
               <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 space-y-3">

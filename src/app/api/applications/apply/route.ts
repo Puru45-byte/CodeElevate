@@ -150,11 +150,60 @@ export async function POST(request: Request) {
               .getPublicUrl(fileName);
             photoUrl = publicUrlData.publicUrl;
           } else {
-            console.error("Storage upload error:", uploadError);
+            console.error("Storage photo upload error:", uploadError);
           }
         }
       } catch (uploadErr) {
         console.error("Error processing photo upload:", uploadErr);
+      }
+    }
+
+    // 4b. Handle Resume PDF Upload if base64 provided
+    let resumeUrl = data.resumeUrl || null;
+    let resumeFileName = data.resumeFileName || null;
+    if (data.resumeBase64 && data.resumeBase64.includes(";base64,")) {
+      try {
+        const matches = data.resumeBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const mimeType = matches[1].toLowerCase();
+          const base64Data = matches[2];
+          const buffer = Buffer.from(base64Data, "base64");
+
+          // Server-side validation: PDF only and max 2 MB
+          if (mimeType !== "application/pdf" && mimeType !== "application/x-pdf") {
+            return NextResponse.json(
+              { error: "Invalid resume format. Only PDF files are accepted." },
+              { status: 400 }
+            );
+          }
+
+          if (buffer.length > 2 * 1024 * 1024) {
+            return NextResponse.json(
+              { error: "Resume file size exceeds the 2 MB limit." },
+              { status: 400 }
+            );
+          }
+
+          const fileName = `${userId}/resume-${Date.now()}.pdf`;
+          const { error: uploadError } = await supabaseAdmin.storage
+            .from("resumes")
+            .upload(fileName, buffer, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+
+          if (!uploadError) {
+            const { data: publicUrlData } = supabaseAdmin.storage
+              .from("resumes")
+              .getPublicUrl(fileName);
+            resumeUrl = publicUrlData.publicUrl;
+            resumeFileName = data.resumeFileName || "Student_Resume.pdf";
+          } else {
+            console.error("Storage resume upload error:", uploadError);
+          }
+        }
+      } catch (uploadErr) {
+        console.error("Error processing resume upload:", uploadErr);
       }
     }
 
@@ -185,6 +234,11 @@ export async function POST(request: Request) {
 
     if (photoUrl) {
       profilePayload.photo_url = photoUrl;
+    }
+
+    if (resumeUrl) {
+      profilePayload.resume_url = resumeUrl;
+      profilePayload.resume_file_name = resumeFileName;
     }
 
     // Check if profile row exists
@@ -220,6 +274,8 @@ export async function POST(request: Request) {
         mode: data.mode || "Remote",
         type: data.type || "INTERNSHIP",
         status: "PENDING",
+        resume_url: resumeUrl,
+        resume_file_name: resumeFileName,
       })
       .select()
       .single();
