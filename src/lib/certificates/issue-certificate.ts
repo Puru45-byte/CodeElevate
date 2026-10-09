@@ -62,8 +62,17 @@ export async function issueCertificatePDF(
     `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
     "Student";
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://code-elevate-mu.vercel.app";
+  let siteUrl = "https://code-elevate-mu.vercel.app";
+  if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost")) {
+    siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  } else if (process.env.VERCEL_URL) {
+    siteUrl = `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "")}`;
+  }
+
+  let signatoryName = template?.config?.signatory_name || "Sanika Deore";
+  if (signatoryName === "Pushkar Kumar") {
+    signatoryName = "Sanika Deore";
+  }
 
   // 2. Build PDF data
   const pdfData: CertificatePDFData = {
@@ -74,8 +83,7 @@ export async function issueCertificatePDF(
     startDate: enrollment?.start_date || cert.issued_at,
     endDate: enrollment?.end_date || cert.issued_at,
     issuedAt: cert.issued_at,
-    signatoryName:
-      template?.config?.signatory_name || "Sanika Deore",
+    signatoryName,
     signatoryTitle:
       template?.config?.signatory_title ||
       "Head of Academic Programs & Engineering",

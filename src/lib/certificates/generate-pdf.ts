@@ -482,11 +482,15 @@ export async function generateCertificatePDF(
   );
 
   // 7. Verification Line (Helvetica 7.5 pt, Gray, y = 547)
-  const baseSiteUrl = (
-    data.siteUrl ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://code-elevate-mu.vercel.app"
-  ).replace(/\/$/, "");
+  let baseSiteUrl = "https://code-elevate-mu.vercel.app";
+  if (data.siteUrl && !data.siteUrl.includes("localhost")) {
+    baseSiteUrl = data.siteUrl.replace(/\/$/, "");
+  } else if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost")) {
+    baseSiteUrl = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  } else if (process.env.VERCEL_URL) {
+    const rawVercel = process.env.VERCEL_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    baseSiteUrl = `https://${rawVercel}`;
+  }
   const verifyUrl = `${baseSiteUrl}/verify/${data.urlSlug}`;
   const verifyText = `Verify at: ${verifyUrl}`;
   drawCenteredTextByTopCenter(
