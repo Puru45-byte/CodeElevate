@@ -164,51 +164,49 @@ export function TaskDetailContent({
                 Learning Materials & Slides
               </h3>
               <p className="text-xs text-slate-500">
-                Presentation slides (PPT), reference code snippets, and guides.
+                Presentation slides (PPT), reference code snippets, and guides uploaded for this task.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
-                  Module Presentation Deck
-                </span>
-                <h4 className="text-xs font-bold text-slate-900">{task.title} - Slide Deck (PPT)</h4>
-                <p className="text-[11px] text-slate-500">
-                  Official slides with architectural diagrams and step-by-step walkthrough.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDownloadResource(task.id)}
-                  disabled={downloadingId === task.id}
-                  className="w-full text-xs font-bold rounded-xl h-8 gap-1.5 mt-2"
-                >
-                  <Download className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Download Slide Deck</span>
-                </Button>
-              </div>
+            {task.resources && task.resources.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {task.resources.map((res) => (
+                  <div
+                    key={res.id || res.title}
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        {res.type || "PPT/PDF"}
+                      </span>
+                      <h4 className="text-xs font-bold text-slate-900 pt-1 leading-snug">
+                        {res.title}
+                      </h4>
+                    </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                  Specification & Reference
-                </span>
-                <h4 className="text-xs font-bold text-slate-900">Task Deliverable Guide (PDF)</h4>
-                <p className="text-[11px] text-slate-500">
-                  Code quality criteria, sample API contracts, and testing instructions.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDownloadResource(task.id)}
-                  disabled={downloadingId === task.id}
-                  className="w-full text-xs font-bold rounded-xl h-8 gap-1.5 mt-2"
-                >
-                  <Download className="h-3.5 w-3.5 text-indigo-600" />
-                  <span>Download Guide</span>
-                </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadResource(res.id!)}
+                      disabled={downloadingId === res.id}
+                      className="w-full text-xs font-bold rounded-xl h-9 gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 shadow-xs"
+                    >
+                      <Download className="h-3.5 w-3.5 text-blue-600" />
+                      <span>
+                        {downloadingId === res.id ? "Preparing File..." : "Download / Open Material"}
+                      </span>
+                    </Button>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+                <p className="text-xs font-bold text-slate-700">No specific resources attached to this task</p>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  Check the overall &quot;Learning Materials (PPT/PDF)&quot; tab in My Learning for track slide decks.
+                </p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

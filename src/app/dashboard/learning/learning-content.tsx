@@ -221,6 +221,15 @@ export function LearningContent({
     daysRemaining = Math.max(0, differenceInDays(endDate, today));
   }
 
+  // Extract all uploaded resources across all tasks in this internship
+  const allTrackResources = (internship.tasks || []).flatMap((t: any) =>
+    (t.resources || []).map((r: any) => ({
+      ...r,
+      taskTitle: t.title,
+      moduleTitle: t.module?.title,
+    }))
+  );
+
   // Handle secure resource download
   const handleDownloadResource = async (resourceId: string, title?: string) => {
     setDownloadingResourceId(resourceId);
@@ -233,8 +242,7 @@ export function LearningContent({
 
       const data = await res.json();
       if (!res.ok || !data.signedUrl) {
-        toast.info(`Opening reference guide for ${title || "internship"}...`);
-        window.open(`/internships/${internship.slug}`, "_blank");
+        toast.error(data.error || "Could not retrieve download link for this material.");
         return;
       }
 
@@ -243,6 +251,15 @@ export function LearningContent({
       toast.error("Error opening resource.");
     } finally {
       setDownloadingResourceId(null);
+    }
+  };
+
+  const handleDownloadMainPack = () => {
+    if (allTrackResources.length > 0) {
+      const firstResource = allTrackResources[0];
+      handleDownloadResource(firstResource.id, firstResource.title);
+    } else {
+      toast.info(`No custom PPT/PDF slide deck uploaded for ${internship.title} yet.`);
     }
   };
 
@@ -476,7 +493,7 @@ export function LearningContent({
                 Internship Learning Materials
               </h3>
               <p className="text-xs text-slate-500">
-                Official presentation slides (PPT), reference code snippets, and deliverable specifications.
+                Official presentation slides (PPT), reference code snippets, and deliverable specifications uploaded for {internship.title}.
               </p>
             </div>
 
@@ -489,19 +506,75 @@ export function LearningContent({
                   {internship.title} - Complete Curriculum & Slides (PPT / PDF)
                 </h4>
                 <p className="text-xs text-slate-600">
-                  Contains all module slide decks, architectural diagrams, project requirements, and API specs.
+                  {allTrackResources.length > 0
+                    ? `${allTrackResources.length} PPT/PDF resources available for this track.`
+                    : "Contains all module slide decks, architectural diagrams, project requirements, and API specs."}
                 </p>
               </div>
 
               <Button
-                onClick={() => handleDownloadResource(internship.id, internship.title)}
-                disabled={downloadingResourceId === internship.id}
+                onClick={handleDownloadMainPack}
+                disabled={downloadingResourceId !== null}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl h-10 px-5 gap-2 shrink-0 shadow-md shadow-blue-500/20"
               >
                 <Download className="h-4 w-4" />
                 <span>Download Material Pack</span>
               </Button>
             </div>
+
+            {/* List of uploaded PPT / PDF resources */}
+            {allTrackResources.length > 0 ? (
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Uploaded Slide Decks & Documents ({allTrackResources.length})
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {allTrackResources.map((res: any) => (
+                    <div
+                      key={res.id}
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col justify-between space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                            {res.type || "PPT/PDF"}
+                          </span>
+                          {res.taskTitle && (
+                            <span className="text-[10px] text-slate-400 font-semibold truncate max-w-[150px]">
+                              {res.taskTitle}
+                            </span>
+                          )}
+                        </div>
+                        <h5 className="text-xs font-bold text-slate-900 pt-1 leading-snug">
+                          {res.title}
+                        </h5>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadResource(res.id, res.title)}
+                        disabled={downloadingResourceId === res.id}
+                        className="w-full text-xs font-bold rounded-xl h-9 gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 shadow-xs"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>
+                          {downloadingResourceId === res.id ? "Preparing File..." : "Download / Open Material"}
+                        </span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2">
+                <FolderDown className="h-8 w-8 text-slate-400 mx-auto" />
+                <p className="text-xs font-bold text-slate-700">No PPT / PDF slide decks uploaded yet</p>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  When the admin attaches PPT presentations or PDF reference guides to tasks in {internship.title}, they will appear here for instant download.
+                </p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

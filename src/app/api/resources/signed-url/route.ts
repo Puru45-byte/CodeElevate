@@ -19,21 +19,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing resourceId" }, { status: 400 });
     }
 
+    const targetBucket = bucketName;
     const supabaseAdmin = createAdminClient();
 
     // 1. Fetch resource record
-    const { data: resource, error: resError } = await supabaseAdmin
+    const { data: resource } = await supabaseAdmin
       .from("task_resources")
       .select("*, task:tasks(internship_id)")
       .eq("id", resourceId)
       .maybeSingle();
 
-    let targetPath = resource?.file_path;
-    let targetBucket = bucketName;
+    // Check if external link or http URL
+    const externalLink = resource?.external_url || resource?.url;
+    if (externalLink && (externalLink.startsWith("http://") || externalLink.startsWith("https://"))) {
+      return NextResponse.json({ signedUrl: externalLink });
+    }
 
-    // Fallback if resource is a plain storage path
-    if (!targetPath) {
-      targetPath = resourceId;
+    let targetPath = resource?.file_path || resourceId;
+
+    if (targetPath.startsWith("http://") || targetPath.startsWith("https://")) {
+      return NextResponse.json({ signedUrl: targetPath });
+    }
+
+    // Clean bucket prefix if present
+    if (targetPath.startsWith("task-resources/")) {
+      targetPath = targetPath.replace(/^task-resources\//, "");
     }
 
     // 2. Check if student has enrollment or is admin
@@ -72,7 +82,16 @@ export async function POST(request: Request) {
       .createSignedUrl(targetPath, 3600);
 
     if (signError || !signedData?.signedUrl) {
-      // If signed url fails because file is in another bucket or direct link, return error or fallback
+      // If path is a public URL fallback
+      if (targetPath.includes("/")) {
+        const { data: publicUrlData } = supabaseAdmin.storage
+          .from(targetBucket)
+          .getPublicUrl(targetPath);
+        if (publicUrlData?.publicUrl) {
+          return NextResponse.json({ signedUrl: publicUrlData.publicUrl });
+        }
+      }
+
       return NextResponse.json(
         { error: signError?.message || "Failed to generate download link" },
         { status: 404 }
