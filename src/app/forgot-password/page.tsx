@@ -37,10 +37,18 @@ export default function ForgotPasswordPage() {
 
     try {
       const supabase = createClient();
-      const origin = window.location.origin;
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email.trim(), {
-        redirectTo: `${origin}/reset-password`,
-      });
+      const baseDomain =
+        process.env.NEXT_PUBLIC_SITE_URL &&
+        !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost")
+          ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
+          : "https://code-elevate-mu.vercel.app";
+
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        data.email.trim(),
+        {
+          redirectTo: `${baseDomain}/reset-password`,
+        }
+      );
 
       if (error) {
         setErrorMessage(error.message || "Failed to send reset email.");
