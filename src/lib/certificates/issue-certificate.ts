@@ -63,10 +63,8 @@ export async function issueCertificatePDF(
     "Student";
 
   let siteUrl = "https://code-elevate-mu.vercel.app";
-  if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost")) {
+  if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost") && !process.env.NEXT_PUBLIC_SITE_URL.includes("patilpushkar199")) {
     siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  } else if (process.env.VERCEL_URL) {
-    siteUrl = `https://${process.env.VERCEL_URL.replace(/^https?:\/\//, "")}`;
   }
 
   let signatoryName = template?.config?.signatory_name || "Sanika Deore";
