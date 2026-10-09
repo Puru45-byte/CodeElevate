@@ -323,6 +323,8 @@ export function ApplyForm({
       setResumeFileName(file.name);
       setResumeFileSize(formattedSize);
       setIsResumeUploading(false);
+      form1.setValue("resumeUrl", result);
+      setResumeError(null);
     };
     reader.onerror = () => {
       setResumeError("Failed to read the PDF file. Please try again.");
@@ -358,7 +360,25 @@ export function ApplyForm({
 
   // Step Handlers
   const onStep1Next = form1.handleSubmit((data) => {
-    const updated = { ...formData, step1: data };
+    const hasResume =
+      data.resumeUrl ||
+      resumePreview ||
+      formData.step1.resumeUrl ||
+      existingProfile?.resume_url;
+
+    if (!hasResume) {
+      setResumeError("Resume / CV is required. Please upload your resume in PDF format.");
+      return;
+    }
+
+    setResumeError(null);
+    const updated = {
+      ...formData,
+      step1: {
+        ...data,
+        resumeUrl: data.resumeUrl || (resumePreview as string) || existingProfile?.resume_url || "",
+      },
+    };
     setFormData(updated);
     saveDraft(updated);
     setServerError(null);
@@ -712,7 +732,7 @@ export function ApplyForm({
             {/* Resume / CV Upload */}
             <div className="space-y-2">
               <Label htmlFor="resumeInput" className="text-xs font-bold text-slate-700">
-                Resume / CV (Optional - max 2 MB)
+                Resume / CV <span className="text-red-500">*</span> (PDF required - max 2 MB)
               </Label>
               <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
                 <div className="relative h-20 w-20 shrink-0 rounded-2xl overflow-hidden bg-slate-200 border-2 border-white shadow-md flex items-center justify-center">
@@ -776,7 +796,8 @@ export function ApplyForm({
                             setResumeBase64(null);
                             setResumeFileName(null);
                             setResumeFileSize(null);
-                            setResumeError(null);
+                            form1.setValue("resumeUrl", "");
+                            setResumeError("Resume / CV is required. Please upload your resume in PDF format.");
                             if (resumeInputRef.current) resumeInputRef.current.value = "";
                           }}
                           className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8"

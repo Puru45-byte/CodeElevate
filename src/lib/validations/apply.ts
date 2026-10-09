@@ -27,7 +27,7 @@ export const step1PersonalSchema = z.object({
     )
     .or(z.literal("")),
   photoUrl: z.string().optional().or(z.literal("")),
-  resumeUrl: z.string().optional().or(z.literal("")),
+  resumeUrl: z.string().trim().min(1, "Resume / CV is required. Please upload your resume."),
   resumeFileName: z.string().optional().or(z.literal("")),
 });
 
@@ -111,7 +111,7 @@ export const fullApplicationSchema = z
       .or(z.literal("")),
     photoUrl: z.string().optional().or(z.literal("")),
     photoBase64: z.string().optional().or(z.literal("")),
-    resumeUrl: z.string().optional().or(z.literal("")),
+    resumeUrl: z.string().trim().min(1, "Resume / CV is required. Please upload your resume."),
     resumeFileName: z.string().optional().or(z.literal("")),
     resumeBase64: z.string().optional().or(z.literal("")),
 
