@@ -56,6 +56,24 @@ export default async function ApplyPage({ params }: ApplyPageProps) {
       .eq("id", user.id)
       .maybeSingle();
     existingProfile = profile;
+
+    // Fallback: If profile doesn't have resume_url yet, check recent applications
+    if (existingProfile && !existingProfile.resume_url) {
+      const { data: recentApp } = await supabase
+        .from("applications")
+        .select("resume_url, resume_file_name")
+        .eq("user_id", user.id)
+        .not("resume_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentApp?.resume_url) {
+        existingProfile.resume_url = recentApp.resume_url;
+        existingProfile.resume_file_name =
+          recentApp.resume_file_name || "Student_Resume.pdf";
+      }
+    }
   }
 
   return (

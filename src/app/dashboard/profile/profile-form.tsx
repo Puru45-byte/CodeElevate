@@ -23,6 +23,9 @@ import {
   CheckCircle2,
   Loader2,
   Phone,
+  FileText,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +37,14 @@ export function ProfileForm({ profile }: ProfileFormProps) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     profile.photo_url || null
   );
+  const [resumePreview, setResumePreview] = useState<string | null>(
+    profile.resume_url || null
+  );
+  const [resumeFileName, setResumeFileName] = useState<string | null>(
+    profile.resume_file_name || null
+  );
+  const [isResumeUploading, setIsResumeUploading] = useState<boolean>(false);
+
   const [phone, setPhone] = useState(profile.phone || "");
   const [whatsapp, setWhatsapp] = useState(profile.whatsapp || "");
   const [address, setAddress] = useState(profile.address || "");
@@ -47,6 +58,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
 
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
   const fullName =
     `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
@@ -98,6 +110,84 @@ export function ProfileForm({ profile }: ProfileFormProps) {
       toast.success("Profile photo updated!");
     } catch {
       toast.error("Failed to upload photo");
+    }
+  };
+
+  // Handle Resume PDF upload
+  const handleResumeSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Please select a PDF file for your resume.");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Resume file size must be less than 2 MB.");
+      return;
+    }
+
+    setIsResumeUploading(true);
+
+    try {
+      const supabase = createClient();
+      const fileName = `${profile.id}/resume-${Date.now()}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(fileName, file, { contentType: "application/pdf", upsert: true });
+
+      if (uploadError) {
+        toast.error("Resume upload failed. " + uploadError.message);
+        setIsResumeUploading(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(fileName);
+
+      const newUrl = publicUrlData.publicUrl;
+      const newFileName = file.name;
+
+      setResumePreview(newUrl);
+      setResumeFileName(newFileName);
+
+      // Save to profile
+      await supabase
+        .from("profiles")
+        .update({
+          resume_url: newUrl,
+          resume_file_name: newFileName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id);
+
+      toast.success("Default resume updated! Next internship applications will auto-fill it.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload resume");
+    } finally {
+      setIsResumeUploading(false);
+    }
+  };
+
+  const handleRemoveResume = async () => {
+    try {
+      const supabase = createClient();
+      setResumePreview(null);
+      setResumeFileName(null);
+      await supabase
+        .from("profiles")
+        .update({
+          resume_url: null,
+          resume_file_name: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id);
+      toast.success("Resume removed from profile.");
+    } catch {
+      toast.error("Failed to remove resume.");
     }
   };
 
@@ -194,6 +284,90 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             <span>Change Profile Picture</span>
           </Button>
         </div>
+      </div>
+
+      {/* ────────────────── RESUME / CV SECTION ────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-blue-600" />
+              <span>Default Resume / CV</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Your saved resume will auto-fill automatically whenever you apply for any internship.
+            </p>
+          </div>
+
+          <input
+            type="file"
+            ref={resumeInputRef}
+            accept="application/pdf"
+            onChange={handleResumeSelect}
+            className="hidden"
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isResumeUploading}
+            onClick={() => resumeInputRef.current?.click()}
+            className="text-xs font-bold rounded-xl h-9 px-4 gap-2 border-slate-300 text-slate-700 hover:bg-slate-50 shrink-0"
+          >
+            {isResumeUploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+            ) : (
+              <Upload className="h-3.5 w-3.5 text-blue-600" />
+            )}
+            <span>{resumePreview ? "Update Resume (PDF)" : "Upload Resume (PDF)"}</span>
+          </Button>
+        </div>
+
+        {resumePreview ? (
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="p-2.5 rounded-xl bg-blue-600 text-white shrink-0 shadow-sm">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-slate-900 truncate">
+                  {resumeFileName || "Student_Resume.pdf"}
+                </p>
+                <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1 mt-0.5">
+                  <CheckCircle2 className="h-3 w-3" /> Ready & saved on profile
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 ml-3">
+              <a
+                href={resumePreview}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-bold text-blue-700 hover:text-blue-900 hover:underline text-xs bg-white px-3 py-1.5 rounded-xl border border-blue-200 shadow-xs"
+              >
+                <span>View</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              <button
+                type="button"
+                onClick={handleRemoveResume}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="Remove resume"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center space-y-1">
+            <p className="text-xs font-semibold text-slate-700">No default resume saved</p>
+            <p className="text-[11px] text-slate-500">
+              Upload a PDF resume (max 2 MB). It will automatically populate for every internship application.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ────────────────── SECTION 1: CONTACT INFO ────────────────── */}

@@ -1,8 +1,9 @@
 import React from "react";
 import { requireAdmin } from "@/lib/auth/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Award, Sparkles, CheckCircle, LayoutTemplate } from "lucide-react";
+import { Sparkles, LayoutTemplate } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { TemplateEditor } from "./template-editor";
 
 export const revalidate = 0;
 
@@ -62,31 +63,11 @@ export default async function AdminTemplatesPage() {
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-bold">Signatory:</span>
-                <span className="font-bold text-slate-800">
-                  {t.config?.signatory_name || "Pushkar Kumar"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-bold">Title:</span>
-                <span className="text-slate-700">
-                  {t.config?.signatory_title ||
-                    "Head of Academic Programs & Engineering"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-bold">Organization:</span>
-                <span className="text-slate-700">
-                  {t.config?.organization || "CodeElevate EdTech Platform"}
-                </span>
-              </div>
-            </div>
+            <TemplateEditor templateId={t.id} initialConfig={t.config} />
 
             <p className="text-[11px] text-slate-500 italic">
-              Interactive template editor, custom logo upload & signature builder
-              will be expanded in Level 8.
+              Edits to signatory details and header tagline update future and
+              regenerated certificate PDFs immediately.
             </p>
           </div>
         ))}

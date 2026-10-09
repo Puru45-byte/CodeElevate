@@ -5,12 +5,13 @@ import { z } from "zod";
 
 const generateSchema = z.object({
   certificateId: z.string().uuid(),
+  forceRegenerate: z.boolean().optional().default(true),
 });
 
 /**
  * POST /api/certificates/generate
  * Admin-only: triggers PDF generation and upload for a given certificate row.
- * Idempotent — if PDF already exists, returns the existing path.
+ * Default forceRegenerate=true overwrites any existing PDF with the updated template design.
  */
 export async function POST(request: Request) {
   try {
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await issueCertificatePDF(parsed.data.certificateId);
+    const result = await issueCertificatePDF(
+      parsed.data.certificateId,
+      parsed.data.forceRegenerate
+    );
 
     if (!result.success) {
       return NextResponse.json(

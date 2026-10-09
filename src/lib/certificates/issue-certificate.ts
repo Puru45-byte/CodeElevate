@@ -11,7 +11,10 @@ import { generateCertificatePDF, CertificatePDFData } from "./generate-pdf";
  *
  * Idempotent: if pdf_path is already set, returns early.
  */
-export async function issueCertificatePDF(certificateId: string): Promise<{
+export async function issueCertificatePDF(
+  certificateId: string,
+  forceRegenerate = false
+): Promise<{
   success: boolean;
   pdfPath?: string;
   error?: string;
@@ -38,8 +41,8 @@ export async function issueCertificatePDF(certificateId: string): Promise<{
     return { success: false, error: "Certificate not found" };
   }
 
-  // Idempotent: already has PDF
-  if (cert.pdf_path) {
+  // Idempotent: already has PDF (unless forceRegenerate is true)
+  if (cert.pdf_path && !forceRegenerate) {
     return { success: true, pdfPath: cert.pdf_path };
   }
 
@@ -60,7 +63,7 @@ export async function issueCertificatePDF(certificateId: string): Promise<{
     "Student";
 
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    process.env.NEXT_PUBLIC_SITE_URL || "https://code-elevate-mu.vercel.app";
 
   // 2. Build PDF data
   const pdfData: CertificatePDFData = {
@@ -72,12 +75,16 @@ export async function issueCertificatePDF(certificateId: string): Promise<{
     endDate: enrollment?.end_date || cert.issued_at,
     issuedAt: cert.issued_at,
     signatoryName:
-      template?.config?.signatory_name || "Pushkar Kumar",
+      template?.config?.signatory_name || "Sanika Deore",
     signatoryTitle:
       template?.config?.signatory_title ||
       "Head of Academic Programs & Engineering",
     organization:
       template?.config?.organization || "CodeElevate EdTech Platform",
+    tagline:
+      template?.config?.tagline ||
+      "Practical Internship & Career Acceleration Platform",
+    signatureText: template?.config?.signature_text || "Sdeore",
     siteUrl,
   };
 
