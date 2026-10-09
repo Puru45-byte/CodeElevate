@@ -58,9 +58,14 @@ export async function issueCertificatePDF(
     ? cert.template[0]
     : cert.template;
 
-  const studentName =
+  const rawStudentName =
     `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
     "Student";
+
+  const studentName = rawStudentName
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
 
   let siteUrl = "https://code-elevate-mu.vercel.app";
   if (process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost") && !process.env.NEXT_PUBLIC_SITE_URL.includes("patilpushkar199")) {

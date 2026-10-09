@@ -59,6 +59,18 @@ function sanitizeText(str: string): string {
 }
 
 /**
+ * Capitalizes the first letter of each word (e.g. "pushkar patil" -> "Pushkar Patil")
+ */
+function formatTitleCase(str: string): string {
+  if (!str) return "";
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
  * Formats ISO date string to "DD Mon YYYY" (e.g. 09 Oct 2026)
  */
 function formatCertDate(rawDate: string): string {
@@ -316,7 +328,7 @@ export async function generateCertificatePDF(
   );
 
   // 6. Student Name (TimesRomanBoldItalic 46 pt, Dark Text, baseline at y = 252)
-  const safeStudentName = sanitizeText(data.studentName || "Student Name");
+  const safeStudentName = sanitizeText(formatTitleCase(data.studentName || "Student Name"));
   let nameFontSize = 46;
   let nameWidth = fontTimesBoldItalic.widthOfTextAtSize(safeStudentName, nameFontSize);
 
