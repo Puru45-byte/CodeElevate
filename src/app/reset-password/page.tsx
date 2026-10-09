@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,11 +37,38 @@ export default function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
 
+  const [isLinkExpired, setIsLinkExpired] = useState(false);
+
   useEffect(() => {
+    // Check URL parameters or hash for errors like otp_expired
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+      const error = urlParams.get("error") || hashParams.get("error");
+      const errorDescription =
+        urlParams.get("error_description") || hashParams.get("error_description");
+      const errorCode = urlParams.get("error_code") || hashParams.get("error_code");
+
+      if (error || errorCode || errorDescription) {
+        setIsLinkExpired(true);
+        if (errorCode === "otp_expired" || errorDescription?.includes("expired")) {
+          setErrorMessage(
+            "This password reset link has expired or has already been used. Please request a new link."
+          );
+        } else if (errorDescription) {
+          setErrorMessage(decodeURIComponent(errorDescription.replace(/\+/g, " ")));
+        }
+      }
+    }
+
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "PASSWORD_RECOVERY") {
         setErrorMessage(null);
+        setIsLinkExpired(false);
       }
     });
 
@@ -107,6 +135,22 @@ export default function ResetPasswordPage() {
             <p className="text-xs text-emerald-700">
               Redirecting you to the login page...
             </p>
+          </div>
+        ) : isLinkExpired ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-red-50 border border-red-200 p-5 text-center space-y-2">
+              <AlertCircle className="h-8 w-8 text-red-600 mx-auto" />
+              <h3 className="text-sm font-bold text-red-900">Link Expired or Invalid</h3>
+              <p className="text-xs text-red-700 leading-relaxed">
+                {errorMessage || "This password reset link has expired or has already been used."}
+              </p>
+            </div>
+            <Link href="/forgot-password" className="block">
+              <Button className="w-full h-11 rounded-xl text-xs font-bold gap-2">
+                <span>Request New Password Reset Link</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
