@@ -17,14 +17,11 @@ import {
   CheckCircle2,
   Clock,
   Award,
-  AlertCircle,
-  Layers,
   ArrowRight,
   Calendar,
   Sparkles,
   Hourglass,
   FileText,
-  ShieldCheck,
   TrendingUp,
 } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
@@ -57,46 +54,56 @@ export default async function DashboardPage() {
   const applications = await getStudentApplications(supabase, user.id);
   const certificates = await getStudentCertificates(supabase, user.id);
 
-  const activeEnrollment =
-    enrollments.find((e) => e.status === "ACTIVE") || null;
+  const activeEnrollments = enrollments.filter(
+    (e) => e.status === "ACTIVE"
+  );
   const completedEnrollments = enrollments.filter(
     (e) => e.status === "COMPLETED"
   );
   const latestApplication = applications[0];
 
-  // 3. Compute stats via DB RPC
-  let progress = { approved_required: 0, total_required: 0, percent: 0 };
-  let pendingTasksCount = 0;
-  let completedTasksCount = 0;
-  let daysRemaining = 0;
+  // 3. Compute stats for active enrollments
+  const activeEnrollmentData = await Promise.all(
+    activeEnrollments.map(async (enr) => {
+      const progress = await getEnrollmentProgress(supabase, enr.id);
+      const taskStatuses = await getEnrollmentTaskStatuses(supabase, enr.id);
+      const completedTasksCount = taskStatuses.filter(
+        (t) => t.computed_status === "APPROVED"
+      ).length;
+      const pendingTasksCount = taskStatuses.filter(
+        (t) =>
+          t.computed_status === "AVAILABLE" ||
+          t.computed_status === "UNDER_REVIEW"
+      ).length;
 
-  if (activeEnrollment) {
-    progress = await getEnrollmentProgress(supabase, activeEnrollment.id);
-    const taskStatuses = await getEnrollmentTaskStatuses(
-      supabase,
-      activeEnrollment.id
-    );
+      let daysRemaining = 0;
+      if (enr.end_date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const endDate = parseISO(enr.end_date);
+        daysRemaining = Math.max(0, differenceInDays(endDate, today));
+      }
 
-    completedTasksCount = taskStatuses.filter(
-      (t) => t.computed_status === "APPROVED"
-    ).length;
-    pendingTasksCount = taskStatuses.filter(
-      (t) =>
-        t.computed_status === "AVAILABLE" ||
-        t.computed_status === "UNDER_REVIEW"
-    ).length;
+      return {
+        enrollment: enr,
+        progress,
+        completedTasksCount,
+        pendingTasksCount,
+        daysRemaining,
+      };
+    })
+  );
 
-    if (activeEnrollment.end_date) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const endDate = parseISO(activeEnrollment.end_date);
-      daysRemaining = Math.max(0, differenceInDays(endDate, today));
-    }
-  } else if (completedEnrollments.length > 0) {
-    progress = { approved_required: 8, total_required: 8, percent: 100 };
-    completedTasksCount = 8;
-    pendingTasksCount = 0;
-  }
+  const primaryData = activeEnrollmentData[0] || null;
+  const totalPendingTasksCount = activeEnrollmentData.reduce(
+    (sum, item) => sum + item.pendingTasksCount,
+    0
+  );
+  const overallProgressPercent = primaryData
+    ? primaryData.progress.percent
+    : completedEnrollments.length > 0
+    ? 100
+    : 0;
 
   const studentFirstName =
     profile?.first_name || user.email?.split("@")[0] || "Student";
@@ -125,14 +132,14 @@ export default async function DashboardPage() {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            {completedEnrollments.length > 0 && !activeEnrollment
+            {completedEnrollments.length > 0 && activeEnrollments.length === 0
               ? "Congratulations on completing your internship! Your verified credentials are ready for download and sharing."
               : "Track your milestones, submit your local code deliverables, and unlock your verified credential upon evaluation."}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            {activeEnrollment ? (
-              <Link href="/dashboard/learning">
+            {activeEnrollments.length > 0 ? (
+              <Link href={`/dashboard/learning?enrollment=${activeEnrollments[0].id}`}>
                 <Button className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs h-10 px-5 rounded-xl shadow-lg shadow-blue-500/30 gap-2">
                   <span>Continue Learning</span>
                   <ArrowRight className="h-4 w-4" />
@@ -195,17 +202,21 @@ export default async function DashboardPage() {
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-black text-slate-900">
-              {progress.percent}%
+              {overallProgressPercent}%
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              {progress.approved_required} of {progress.total_required} required tasks
+              {primaryData
+                ? `${primaryData.progress.approved_required} of ${primaryData.progress.total_required} required (${primaryData.enrollment.internship?.title})`
+                : completedEnrollments.length > 0
+                ? "All requirements completed"
+                : "No active track"}
             </p>
           </div>
           {/* Progress bar */}
           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{ width: `${progress.percent}%` }}
+              style={{ width: `${overallProgressPercent}%` }}
             />
           </div>
         </div>
@@ -222,14 +233,21 @@ export default async function DashboardPage() {
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-black text-slate-900">
-              {pendingTasksCount}
+              {totalPendingTasksCount}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              {pendingTasksCount > 0 ? "Awaiting review or submit" : "All caught up"}
+              {totalPendingTasksCount > 0 ? "Awaiting review or submit" : "All caught up"}
             </p>
           </div>
           <div className="text-[11px] font-semibold text-amber-600 flex items-center gap-1">
-            <Link href="/dashboard/tasks" className="hover:underline flex items-center gap-1">
+            <Link
+              href={
+                primaryData
+                  ? `/dashboard/tasks?enrollment=${primaryData.enrollment.id}`
+                  : "/dashboard/tasks"
+              }
+              className="hover:underline flex items-center gap-1"
+            >
               <span>View task list</span>
               <ArrowRight className="h-3 w-3" />
             </Link>
@@ -248,14 +266,16 @@ export default async function DashboardPage() {
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-black text-slate-900">
-              {activeEnrollment ? `${daysRemaining}d` : "—"}
+              {primaryData ? `${primaryData.daysRemaining}d` : "—"}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              {activeEnrollment ? `Until ${activeEnrollment.end_date}` : "No active batch"}
+              {primaryData
+                ? `Until ${primaryData.enrollment.end_date}`
+                : "No active batch"}
             </p>
           </div>
           <div className="text-[11px] font-semibold text-indigo-600">
-            {activeEnrollment ? "1 Month Duration" : "Not enrolled"}
+            {primaryData ? `${primaryData.enrollment.internship?.title}` : "Not enrolled"}
           </div>
         </div>
 
@@ -275,7 +295,7 @@ export default async function DashboardPage() {
                 <span className="text-emerald-600 flex items-center gap-1">
                   <CheckCircle2 className="h-5 w-5" /> Issued
                 </span>
-              ) : progress.percent === 100 ? (
+              ) : overallProgressPercent === 100 ? (
                 <span className="text-blue-600">Eligible</span>
               ) : (
                 <span className="text-slate-500 text-base">In Progress</span>
@@ -297,81 +317,141 @@ export default async function DashboardPage() {
       </div>
 
       {/* ────────────────── ACTIVE INTERNSHIP / GRADUATED / EMPTY STATE ────────────────── */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-blue-600" />
-          <span>
-            {activeEnrollment
-              ? "Active Learning Track"
-              : completedEnrollments.length > 0
-              ? "Graduation & Completed Tracks"
-              : "Active Learning Track"}
-          </span>
-        </h2>
+      <div className="space-y-6">
+        {activeEnrollmentData.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+                <span>Active Learning Tracks ({activeEnrollmentData.length})</span>
+              </h2>
+            </div>
 
-        {activeEnrollment ? (
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 p-2.5 shadow-sm ring-1 ring-blue-100">
-                  <Image
-                    src={
-                      activeEnrollment.internship?.icon_url ||
-                      "/icons/open-book.png"
-                    }
-                    alt={activeEnrollment.internship?.title || "Internship"}
-                    width={38}
-                    height={38}
-                    className="object-contain"
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
-                      IN PROGRESS
-                    </Badge>
-                    <Badge variant="outline" className="text-[10px] text-slate-600">
-                      Remote
-                    </Badge>
+            <div className="grid grid-cols-1 gap-6">
+              {activeEnrollmentData.map(
+                ({ enrollment, progress, completedTasksCount, daysRemaining }) => (
+                  <div
+                    key={enrollment.id}
+                    className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6"
+                  >
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 p-2.5 shadow-sm ring-1 ring-blue-100">
+                          <Image
+                            src={
+                              enrollment.internship?.icon_url ||
+                              "/icons/open-book.png"
+                            }
+                            alt={enrollment.internship?.title || "Internship"}
+                            width={38}
+                            height={38}
+                            className="object-contain"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                              IN PROGRESS
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] text-slate-600">
+                              Remote
+                            </Badge>
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-900 mt-1">
+                            {enrollment.internship?.title}
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            {enrollment.start_date} to {enrollment.end_date}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Link href={`/dashboard/learning?enrollment=${enrollment.id}`}>
+                          <Button className="font-bold text-xs rounded-xl h-10 px-5 gap-2 shadow-md shadow-blue-500/20">
+                            <span>Open Curriculum</span>
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Link href={`/dashboard/tasks?enrollment=${enrollment.id}`}>
+                          <Button
+                            variant="outline"
+                            className="font-bold text-xs rounded-xl h-10 px-4 text-slate-700 hover:text-blue-600"
+                          >
+                            <span>Tasks</span>
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Quick summary strip */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-slate-400 font-semibold block">Completed Tasks</span>
+                        <span className="text-base font-bold text-slate-900 mt-0.5 block">
+                          {completedTasksCount} / {progress.total_required} Tasks
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-slate-400 font-semibold block">Batch Timeline</span>
+                        <span className="text-base font-bold text-slate-900 mt-0.5 block">
+                          {daysRemaining} Days Left
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span className="text-slate-400 font-semibold block">Credential Readiness</span>
+                        <span className="text-base font-bold text-emerald-600 mt-0.5 block">
+                          {progress.percent}% Ready
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900 mt-1">
-                    {activeEnrollment.internship?.title}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {activeEnrollment.start_date} to {activeEnrollment.end_date}
-                  </p>
+                )
+              )}
+            </div>
+
+            {completedEnrollments.length > 0 && (
+              <div className="pt-4 space-y-3">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                  Completed & Certified Tracks ({completedEnrollments.length})
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {completedEnrollments.map((enr: any) => {
+                    const cert = certificates.find((c) => c.enrollment_id === enr.id);
+                    return (
+                      <div
+                        key={enr.id}
+                        className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm"
+                      >
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-900">
+                            {enr.internship?.title || "Internship"}
+                          </p>
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Certified
+                          </span>
+                        </div>
+                        <Link
+                          href={
+                            cert
+                              ? `/dashboard/certificates?highlight=${cert.id}`
+                              : "/dashboard/certificates"
+                          }
+                        >
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Certificate →
+                          </Button>
+                        </Link>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              <Link href="/dashboard/learning">
-                <Button className="font-bold text-xs rounded-xl h-10 px-5 gap-2 shadow-md shadow-blue-500/20">
-                  <span>Open Curriculum</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-
-            {/* Quick summary strip */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 font-semibold block">Completed Tasks</span>
-                <span className="text-base font-bold text-slate-900 mt-0.5 block">
-                  {completedTasksCount} / {progress.total_required} Tasks
-                </span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 font-semibold block">Batch Timeline</span>
-                <span className="text-base font-bold text-slate-900 mt-0.5 block">
-                  {daysRemaining} Days Left
-                </span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
-                <span className="text-slate-400 font-semibold block">Credential Readiness</span>
-                <span className="text-base font-bold text-emerald-600 mt-0.5 block">
-                  {progress.percent}% Ready
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         ) : completedEnrollments.length > 0 ? (
           /* All Completed Celebration State */
@@ -414,30 +494,39 @@ export default async function DashboardPage() {
 
             {/* List of completed tracks */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {completedEnrollments.map((enr: any) => (
-                <div
-                  key={enr.id}
-                  className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100"
-                >
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-900">
-                      {enr.internship?.title || "Internship"}
-                    </p>
-                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Certified (100% Complete)
-                    </span>
-                  </div>
-                  <Link href="/dashboard/certificates">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+              {completedEnrollments.map((enr: any) => {
+                const cert = certificates.find((c) => c.enrollment_id === enr.id);
+                return (
+                  <div
+                    key={enr.id}
+                    className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-900">
+                        {enr.internship?.title || "Internship"}
+                      </p>
+                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Certified (100% Complete)
+                      </span>
+                    </div>
+                    <Link
+                      href={
+                        cert
+                          ? `/dashboard/certificates?highlight=${cert.id}`
+                          : "/dashboard/certificates"
+                      }
                     >
-                      Certificate →
-                    </Button>
-                  </Link>
-                </div>
-              ))}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                      >
+                        Certificate →
+                      </Button>
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : latestApplication?.status === "PENDING" ? (

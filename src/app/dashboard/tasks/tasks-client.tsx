@@ -4,23 +4,20 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   CheckSquare,
-  BookOpen,
-  Download,
   Github,
   ExternalLink,
   ChevronDown,
   ChevronUp,
-  FileText,
   Sparkles,
   Hourglass,
   CheckCircle2,
   AlertCircle,
   FolderDown,
-  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SubmitInternshipDialog } from "@/components/shared/SubmitInternshipDialog";
+import { EnrollmentSwitcher } from "@/components/shared/EnrollmentSwitcher";
 import { toast } from "sonner";
 
 interface TaskItem {
@@ -59,6 +56,7 @@ interface TasksClientProps {
       technologies?: string[];
     };
   };
+  allEnrollments?: any[];
   modules: ModuleGroup[];
   allTasks: TaskItem[];
   latestSubmission: {
@@ -73,6 +71,7 @@ interface TasksClientProps {
 
 export function TasksClient({
   enrollment,
+  allEnrollments = [],
   modules,
   allTasks,
   latestSubmission,
@@ -122,13 +121,19 @@ export function TasksClient({
       {/* ────────────────── HEADER BANNER ────────────────── */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2 max-w-2xl">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-bold">
               {enrollment.internship?.title || "Curriculum"}
             </Badge>
             <Badge variant="outline" className="text-[10px] text-slate-500 font-semibold">
               Batch: {enrollment.start_date} - {enrollment.end_date}
             </Badge>
+            {allEnrollments && allEnrollments.length > 1 && (
+              <EnrollmentSwitcher
+                enrollments={allEnrollments}
+                currentEnrollmentId={enrollment.id}
+              />
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">

@@ -629,7 +629,10 @@ export function SubmitInternshipDialog({
 
             <div className="pt-2">
               <Button
-                onClick={handleModalClose}
+                onClick={() => {
+                  handleModalClose();
+                  router.push(`/dashboard/submissions?enrollment=${enrollmentId}`);
+                }}
                 className="rounded-xl text-xs font-bold h-10 px-6 bg-slate-900 hover:bg-slate-800 text-white shadow-sm gap-1.5"
               >
                 <span>View My Submissions</span>

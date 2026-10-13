@@ -26,9 +26,12 @@ import {
 } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { EnrollmentSwitcher } from "@/components/shared/EnrollmentSwitcher";
+import { Award } from "lucide-react";
 
 interface LearningContentProps {
   enrollment: (Enrollment & { internship: Internship }) | null;
+  allEnrollments?: any[];
   completedEnrollments?: any[];
   pendingApplication: Application | null;
   progress: EnrollmentProgress;
@@ -37,10 +40,11 @@ interface LearningContentProps {
 
 export function LearningContent({
   enrollment,
+  allEnrollments = [],
   completedEnrollments = [],
   pendingApplication,
-  progress,
-  taskStatuses,
+  progress: _progress,
+  taskStatuses: _taskStatuses,
 }: LearningContentProps) {
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [downloadingResourceId, setDownloadingResourceId] = useState<string | null>(null);
@@ -231,7 +235,7 @@ export function LearningContent({
   );
 
   // Handle secure resource download
-  const handleDownloadResource = async (resourceId: string, title?: string) => {
+  const handleDownloadResource = async (resourceId: string, _title?: string) => {
     setDownloadingResourceId(resourceId);
     try {
       const res = await fetch("/api/resources/signed-url", {
@@ -280,15 +284,27 @@ export function LearningContent({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
-                  ACTIVE BATCH
-                </Badge>
+                {enrollment.status === "COMPLETED" ? (
+                  <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-bold">
+                    COMPLETED & CERTIFIED 🎓
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                    ACTIVE BATCH
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-[10px] text-slate-600">
                   {internship.category || "Development"}
                 </Badge>
                 <Badge variant="outline" className="text-[10px] text-blue-600 bg-blue-50/50">
                   100% Remote
                 </Badge>
+                {allEnrollments && allEnrollments.length > 1 && (
+                  <EnrollmentSwitcher
+                    enrollments={allEnrollments}
+                    currentEnrollmentId={enrollment.id}
+                  />
+                )}
               </div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 mt-1">
                 {internship.title}
@@ -300,22 +316,40 @@ export function LearningContent({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <div className="text-center sm:text-right">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                  Timeline Left
-                </span>
-                <p className="text-lg font-black text-slate-900">{daysRemaining} Days</p>
+            {enrollment.status === "ACTIVE" && (
+              <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="text-center sm:text-right">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                    Timeline Left
+                  </span>
+                  <p className="text-lg font-black text-slate-900">{daysRemaining} Days</p>
+                </div>
               </div>
-            </div>
+            )}
 
-            <Link href="/dashboard/tasks">
-              <Button className="rounded-xl text-xs font-bold h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 gap-2">
-                <Sparkles className="w-4 h-4" />
-                <span>Submit Internship Work</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+            {enrollment.status === "COMPLETED" ? (
+              <Link
+                href={`/dashboard/certificates${
+                  (enrollment as any).certificate?.id
+                    ? `?highlight=${(enrollment as any).certificate.id}`
+                    : ""
+                }`}
+              >
+                <Button className="rounded-xl text-xs font-bold h-11 px-5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20 gap-2">
+                  <Award className="w-4 h-4" />
+                  <span>View Certificate</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href={`/dashboard/tasks?enrollment=${enrollment.id}`}>
+                <Button className="rounded-xl text-xs font-bold h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Submit Internship Work</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -385,14 +419,14 @@ export function LearningContent({
                   Quick Actions
                 </h3>
                 <div className="space-y-2.5">
-                  <Link href="/dashboard/tasks" className="block">
+                  <Link href={`/dashboard/tasks?enrollment=${enrollment.id}`} className="block">
                     <Button variant="outline" className="w-full justify-between text-xs font-bold rounded-xl h-10 border-slate-200">
                       <span>View All Tasks</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </Link>
 
-                  <Link href="/dashboard/submissions" className="block">
+                  <Link href={`/dashboard/submissions?enrollment=${enrollment.id}`} className="block">
                     <Button variant="outline" className="w-full justify-between text-xs font-bold rounded-xl h-10 border-slate-200">
                       <span>My Submissions</span>
                       <ArrowRight className="h-3.5 w-3.5" />

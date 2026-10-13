@@ -119,7 +119,7 @@ export async function getStudentApplications(
     .from("applications")
     .select("*, internship:internships(*)")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Error fetching student applications:", error);
@@ -134,7 +134,7 @@ export async function getStudentApplications(
 }
 
 /**
- * Fetches student's active and completed enrollments.
+ * Fetches student's active and completed enrollments ordered oldest first.
  */
 export async function getStudentEnrollments(
   supabase: SupabaseClient,
@@ -144,7 +144,8 @@ export async function getStudentEnrollments(
     .from("enrollments")
     .select("*, internship:internships(*)")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("start_date", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Error fetching student enrollments:", error);

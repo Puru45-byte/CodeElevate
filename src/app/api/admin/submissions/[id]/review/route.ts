@@ -96,12 +96,12 @@ export async function POST(
     }
 
     // 3. If APPROVED, complete enrollment and issue certificate
+    const enrollmentId = submission.enrollment_id;
     let isCompleted = false;
     let certificateGenerated = false;
+    let certId: string | null = null;
 
     if (status === "APPROVED") {
-      const enrollmentId = submission.enrollment_id;
-
       // Update enrollment to COMPLETED
       await supabaseAdmin
         .from("enrollments")
@@ -121,7 +121,7 @@ export async function POST(
         .eq("enrollment_id", enrollmentId)
         .maybeSingle();
 
-      let certId = existingCert?.id;
+      certId = existingCert?.id || null;
 
       if (!certId) {
         // Fetch default template
@@ -192,7 +192,9 @@ export async function POST(
         title: "Internship Work Approved & Certified! 🎓",
         body: `Congratulations! Your final project deliverable for "${courseTitle}" has been approved. Your verified certificate has been issued.`,
         type: "CERTIFICATE",
-        link: `/dashboard/certificates`,
+        link: certId
+          ? `/dashboard/certificates?highlight=${certId}`
+          : `/dashboard/certificates`,
       });
     } else {
       await supabaseAdmin.from("notifications").insert({
@@ -200,7 +202,7 @@ export async function POST(
         title: "Internship Submission Needs Revision 📝",
         body: `Your submission for "${courseTitle}" was reviewed. Mentor Feedback: ${feedback}`,
         type: "TASK",
-        link: `/dashboard/submissions`,
+        link: `/dashboard/submissions?enrollment=${enrollmentId}`,
       });
     }
 

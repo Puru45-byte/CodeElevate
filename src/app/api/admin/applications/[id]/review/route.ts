@@ -84,7 +84,9 @@ export async function POST(
         user_id: app.user_id,
         title: "Application Approved! 🎉",
         message: `Your application for ${app.internship?.title || "your internship"} has been approved. Your 1-month learning curriculum is now active!`,
-        link: "/dashboard/learning",
+        link: enrollment?.id
+          ? `/dashboard/learning?enrollment=${enrollment.id}`
+          : "/dashboard/learning",
       });
 
       return NextResponse.json({

@@ -3,10 +3,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  getStudentEnrollments,
-  getInternshipBySlug,
-} from "@/lib/queries/internships";
+import { resolveEnrollment } from "@/lib/enrollments";
+import { getInternshipBySlug } from "@/lib/queries/internships";
 import { Button } from "@/components/ui/button";
 import { CheckSquare, ArrowRight } from "lucide-react";
 import { TasksClient } from "./tasks-client";
@@ -18,7 +16,11 @@ export const metadata: Metadata = {
 
 export const revalidate = 0;
 
-export default async function TasksPage() {
+interface TasksPageProps {
+  searchParams: Promise<{ enrollment?: string }>;
+}
+
+export default async function TasksPage({ searchParams }: TasksPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,14 +30,25 @@ export default async function TasksPage() {
     redirect("/login?redirect=/dashboard/tasks");
   }
 
-  const enrollments = await getStudentEnrollments(supabase, user.id);
-  const activeEnrollment =
-    enrollments.find((e) => e.status === "ACTIVE") || null;
-  const completedEnrollments = enrollments.filter(
+  const { enrollment: requestedEnrollmentId } = (await searchParams) || {};
+
+  // 1. Resolve enrollment following Rule 6 & Rule 8
+  const { resolved, allEnrollments, redirectNeeded } = await resolveEnrollment(
+    user.id,
+    requestedEnrollmentId,
+    supabase
+  );
+
+  // If redirect is needed, redirect with ?enrollment=<id> so URL reflects state
+  if (redirectNeeded && resolved) {
+    redirect(`/dashboard/tasks?enrollment=${resolved.id}`);
+  }
+
+  const completedEnrollments = allEnrollments.filter(
     (e) => e.status === "COMPLETED"
   );
 
-  if (!activeEnrollment) {
+  if (!resolved) {
     if (completedEnrollments.length > 0) {
       return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -143,10 +156,10 @@ export default async function TasksPage() {
 
   // Fetch detailed internship with modules and tasks
   let detailedInternship = null;
-  if (activeEnrollment.internship?.slug) {
+  if (resolved.internship?.slug) {
     detailedInternship = await getInternshipBySlug(
       supabase,
-      activeEnrollment.internship.slug
+      resolved.internship.slug
     );
   }
 
@@ -154,7 +167,7 @@ export default async function TasksPage() {
   const { data: intSubmissions } = await supabase
     .from("internship_submissions")
     .select("*")
-    .eq("enrollment_id", activeEnrollment.id)
+    .eq("enrollment_id", resolved.id)
     .order("submitted_at", { ascending: false })
     .limit(1);
 
@@ -165,7 +178,7 @@ export default async function TasksPage() {
     const { data: taskSubs } = await supabase
       .from("task_submissions")
       .select("*")
-      .eq("enrollment_id", activeEnrollment.id)
+      .eq("enrollment_id", resolved.id)
       .order("submitted_at", { ascending: false })
       .limit(1);
 
@@ -179,7 +192,8 @@ export default async function TasksPage() {
 
   return (
     <TasksClient
-      enrollment={activeEnrollment as any}
+      enrollment={resolved as any}
+      allEnrollments={allEnrollments}
       modules={modules as any}
       allTasks={allTasks as any}
       latestSubmission={latestSub}

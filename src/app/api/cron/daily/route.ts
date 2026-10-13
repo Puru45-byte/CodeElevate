@@ -39,7 +39,7 @@ export async function GET(request: Request) {
           title: "Internship Expired",
           body: `Your time for the "${title || "Internship"}" has expired.`,
           type: "SYSTEM",
-          link: `/dashboard/learning`,
+          link: `/dashboard/learning?enrollment=${e.id}`,
         };
       });
       await supabaseAdmin.from("notifications").insert(notifications);
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
           title: "Internship Ending Soon ⏳",
           body: `You have 3 days left to complete your milestone tasks for "${title || "Internship"}".`,
           type: "SYSTEM",
-          link: `/dashboard/learning`,
+          link: `/dashboard/learning?enrollment=${e.id}`,
         };
       });
       await supabaseAdmin.from("notifications").insert(notifications);

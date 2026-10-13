@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       title: "Task Unlocked 🔓",
       body: `Mentor unlocked "${task.title}" for your learning roadmap.`,
       type: "TASK",
-      link: `/dashboard/learning`,
+      link: `/dashboard/learning?enrollment=${enrollmentId}`,
     });
 
     return NextResponse.json({ success: true, message: "Task manually unlocked." });

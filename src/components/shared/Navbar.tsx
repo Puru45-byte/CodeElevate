@@ -67,11 +67,12 @@ export function Navbar() {
   };
 
   const isDashboardPage =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/my-learning") ||
-    pathname.startsWith("/applications") ||
-    pathname.startsWith("/certificates") ||
-    pathname.startsWith("/admin");
+    (pathname || "").startsWith("/dashboard") ||
+    (pathname || "").startsWith("/admin");
+
+  if (isDashboardPage) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">

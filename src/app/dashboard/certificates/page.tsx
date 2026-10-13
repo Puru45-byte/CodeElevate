@@ -28,7 +28,13 @@ export const metadata: Metadata = {
 
 export const revalidate = 0;
 
-export default async function CertificatesPage() {
+interface CertificatesPageProps {
+  searchParams: Promise<{ highlight?: string }>;
+}
+
+export default async function CertificatesPage({
+  searchParams,
+}: CertificatesPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,6 +44,7 @@ export default async function CertificatesPage() {
     redirect("/login?redirect=/dashboard/certificates");
   }
 
+  const { highlight } = (await searchParams) || {};
   const certificates = await getStudentCertificates(supabase, user.id);
 
   return (
@@ -88,11 +95,16 @@ export default async function CertificatesPage() {
                 ? "Certificate of Completion"
                 : "Certificate of Confirmation";
 
+            const isHighlighted = highlight && cert.id === highlight;
+
             return (
               <div
                 key={cert.id}
+                id={`cert-${cert.id}`}
                 className={`bg-white rounded-3xl border p-6 sm:p-8 shadow-sm space-y-5 flex flex-col justify-between transition-all ${
-                  isRevoked
+                  isHighlighted
+                    ? "ring-2 ring-emerald-500 border-emerald-300 shadow-md bg-emerald-50/20"
+                    : isRevoked
                     ? "border-red-200 opacity-75"
                     : "border-slate-200/80 hover:border-blue-200 hover:shadow-md"
                 }`}

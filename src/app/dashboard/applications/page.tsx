@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getStudentApplications } from "@/lib/queries/internships";
+import { getStudentEnrollments } from "@/lib/enrollments";
 import { ApplicationCard } from "@/components/shared/ApplicationCard";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, ArrowRight } from "lucide-react";
@@ -23,6 +24,7 @@ export default async function ApplicationsPage() {
   if (!user) return null;
 
   const applications = await getStudentApplications(supabase, user.id);
+  const enrollments = await getStudentEnrollments(user.id, supabase);
 
   return (
     <div className="space-y-6">
@@ -71,9 +73,20 @@ export default async function ApplicationsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5">
-          {applications.map((app) => (
-            <ApplicationCard key={app.id} application={app} />
-          ))}
+          {applications.map((app) => {
+            const matchingEnrollment = enrollments.find(
+              (e) =>
+                (e.application_id && e.application_id === app.id) ||
+                e.internship_id === app.internship_id
+            );
+            return (
+              <ApplicationCard
+                key={app.id}
+                application={app}
+                enrollment={matchingEnrollment}
+              />
+            );
+          })}
         </div>
       )}
     </div>

@@ -25,7 +25,13 @@ export const metadata: Metadata = {
 
 export const revalidate = 0;
 
-export default async function SubmissionsPage() {
+interface SubmissionsPageProps {
+  searchParams: Promise<{ enrollment?: string }>;
+}
+
+export default async function SubmissionsPage({
+  searchParams,
+}: SubmissionsPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,6 +40,8 @@ export default async function SubmissionsPage() {
   if (!user) {
     redirect("/login?redirect=/dashboard/submissions");
   }
+
+  const { enrollment: requestedEnrollmentId } = (await searchParams) || {};
 
   // 1. Fetch internship_submissions
   const { data: intSubmissions } = await supabase
@@ -72,6 +80,19 @@ export default async function SubmissionsPage() {
     allSubmissions = taskSubmissions || [];
   }
 
+  const filteredSubmissions = requestedEnrollmentId
+    ? allSubmissions.filter(
+        (s) =>
+          s.enrollment_id === requestedEnrollmentId ||
+          s.enrollment?.id === requestedEnrollmentId
+      )
+    : allSubmissions;
+
+  const currentTrackTitle =
+    requestedEnrollmentId && filteredSubmissions[0]
+      ? filteredSubmissions[0].enrollment?.internship?.title || "Enrolled Track"
+      : null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -87,22 +108,48 @@ export default async function SubmissionsPage() {
         </p>
       </div>
 
+      {/* Filter Info Banner */}
+      {currentTrackTitle && (
+        <div className="flex items-center justify-between p-3.5 px-5 bg-blue-50/70 border border-blue-200/80 rounded-2xl text-xs text-blue-900">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">Showing submissions for:</span>
+            <Badge className="bg-blue-600 text-white font-bold text-[11px] py-0.5 px-2.5">
+              {currentTrackTitle}
+            </Badge>
+          </div>
+          <Link
+            href="/dashboard/submissions"
+            className="text-xs font-semibold text-blue-700 hover:text-blue-900 underline"
+          >
+            Show All Tracks ({allSubmissions.length})
+          </Link>
+        </div>
+      )}
+
       {/* Submissions Table / Cards */}
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm">
-        {allSubmissions.length === 0 ? (
+        {filteredSubmissions.length === 0 ? (
           <div className="p-12 text-center space-y-4">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               <Layers className="h-7 w-7" />
             </div>
             <div className="space-y-1 max-w-sm mx-auto">
               <h3 className="text-base font-bold text-slate-900">
-                No submissions yet
+                No submissions found
               </h3>
               <p className="text-xs text-slate-500">
-                Once you submit your project repository for review, your evaluations and feedbacks will appear here.
+                {currentTrackTitle
+                  ? `You have not submitted work for ${currentTrackTitle} yet.`
+                  : "Once you submit your project repository for review, your evaluations and feedbacks will appear here."}
               </p>
             </div>
-            <Link href="/dashboard/tasks">
+            <Link
+              href={
+                requestedEnrollmentId
+                  ? `/dashboard/tasks?enrollment=${requestedEnrollmentId}`
+                  : "/dashboard/tasks"
+              }
+            >
               <Button className="h-10 px-5 rounded-xl text-xs font-bold gap-2 shadow-md shadow-blue-500/20">
                 <BookOpen className="h-4 w-4" />
                 <span>Go to My Tasks</span>
@@ -123,11 +170,14 @@ export default async function SubmissionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allSubmissions.map((sub: any) => {
+                {filteredSubmissions.map((sub: any) => {
                   const trackTitle =
                     sub.enrollment?.internship?.title ||
+                    sub.internship?.title ||
                     sub.task?.title ||
                     "Internship Track";
+                  const enrollmentId =
+                    sub.enrollment_id || sub.enrollment?.id;
 
                   return (
                     <tr key={sub.id} className="hover:bg-slate-50/60 transition-colors">
@@ -201,7 +251,13 @@ export default async function SubmissionsPage() {
                                 &ldquo;{sub.feedback}&rdquo;
                               </span>
                             )}
-                            <Link href="/dashboard/tasks">
+                            <Link
+                              href={
+                                enrollmentId
+                                  ? `/dashboard/tasks?enrollment=${enrollmentId}`
+                                  : "/dashboard/tasks"
+                              }
+                            >
                               <Button size="sm" className="h-7 px-2.5 text-[10px] font-bold bg-blue-600 text-white rounded-lg gap-1">
                                 <span>Resubmit Work</span>
                                 <ArrowRight className="h-3 w-3" />

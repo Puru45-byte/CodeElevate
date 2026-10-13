@@ -70,6 +70,37 @@ export async function POST(request: Request) {
 
     // 3. Atomically finalize payment and create single internship submission
     const supabaseAdmin = createAdminClient();
+
+    // Rule 8: Re-check payment ownership and ACTIVE state from database
+    const { data: paymentRecord, error: payErr } = await supabaseAdmin
+      .from("payments")
+      .select("id, user_id, enrollment_id, enrollment:enrollments(id, status, user_id)")
+      .eq("razorpay_order_id", razorpay_order_id)
+      .maybeSingle();
+
+    if (payErr || !paymentRecord) {
+      return NextResponse.json(
+        { error: "Payment order record not found." },
+        { status: 404 }
+      );
+    }
+
+    if (paymentRecord.user_id !== user.id) {
+      return NextResponse.json(
+        { error: "Unauthorized. Payment order belongs to a different user." },
+        { status: 403 }
+      );
+    }
+
+    const linkedEnrollment = paymentRecord.enrollment as any;
+    if (linkedEnrollment && linkedEnrollment.status !== "ACTIVE") {
+      return NextResponse.json(
+        {
+          error: `Enrollment is ${linkedEnrollment.status.toLowerCase()}. Submissions can only be verified for ACTIVE enrollments.`,
+        },
+        { status: 400 }
+      );
+    }
     
     // Try finalize_internship_submission first, fallback to finalize_paid_submission
     let finalizeResult: any = null;

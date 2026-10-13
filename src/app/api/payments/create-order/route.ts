@@ -61,10 +61,26 @@ export async function POST(request: Request) {
     const { enrollmentId: rawEnrollmentId, taskId, githubUrl, comments } = parsed.data;
     const supabaseAdmin = createAdminClient();
 
-    let enrollmentId = rawEnrollmentId;
+    let enrollment: any = null;
 
-    // If taskId is passed instead of enrollmentId, resolve the user's active enrollment for that task's internship
-    if (!enrollmentId && taskId) {
+    if (rawEnrollmentId) {
+      // 1. Fetch enrollment details & verify ownership directly from DB
+      const { data: enr, error: enrErr } = await supabaseAdmin
+        .from("enrollments")
+        .select("id, status, internship_id, internship:internships(id, title)")
+        .eq("id", rawEnrollmentId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (enrErr || !enr) {
+        return NextResponse.json(
+          { error: "Enrollment not found or unauthorized." },
+          { status: 403 }
+        );
+      }
+      enrollment = enr;
+    } else if (taskId) {
+      // If taskId is passed instead of enrollmentId, resolve the user's active enrollment for that task's internship
       const { data: task } = await supabaseAdmin
         .from("tasks")
         .select("internship_id")
@@ -74,29 +90,30 @@ export async function POST(request: Request) {
       if (task) {
         const { data: enr } = await supabaseAdmin
           .from("enrollments")
-          .select("id")
+          .select("id, status, internship_id, internship:internships(id, title)")
           .eq("user_id", user.id)
           .eq("internship_id", task.internship_id)
           .eq("status", "ACTIVE")
           .maybeSingle();
-        enrollmentId = enr?.id;
+        enrollment = enr;
       }
     }
 
-    if (!enrollmentId) {
-      // Find the user's active enrollment
+    if (!enrollment) {
+      // Rule 6: default to oldest active enrollment
       const { data: enr } = await supabaseAdmin
         .from("enrollments")
-        .select("id")
+        .select("id, status, internship_id, internship:internships(id, title)")
         .eq("user_id", user.id)
         .eq("status", "ACTIVE")
-        .order("created_at", { ascending: false })
+        .order("start_date", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
-      enrollmentId = enr?.id;
+      enrollment = enr;
     }
 
-    if (!enrollmentId) {
+    if (!enrollment) {
       return NextResponse.json(
         {
           error:
@@ -106,18 +123,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Fetch enrollment details & verify ownership
-    const { data: enrollment, error: enrErr } = await supabaseAdmin
-      .from("enrollments")
-      .select("id, status, internship_id, internship:internships(id, title)")
-      .eq("id", enrollmentId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (enrErr || !enrollment) {
+    // Rule 8: Re-check ACTIVE state from the database
+    if (enrollment.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "Enrollment not found or unauthorized." },
-        { status: 403 }
+        {
+          error: `Enrollment is ${enrollment.status.toLowerCase()}. Submissions can only be made for ACTIVE enrollments.`,
+        },
+        { status: 400 }
       );
     }
 
@@ -181,7 +193,7 @@ export async function POST(request: Request) {
         title: "Internship Work Resubmitted 🚀",
         body: `Your resubmission for "${internshipTitle}" (Attempt #${nextAttemptNo}) has been queued for mentor review.`,
         type: "TASK",
-        link: "/dashboard/submissions",
+        link: `/dashboard/submissions?enrollment=${enrollment.id}`,
       });
 
       return NextResponse.json({
