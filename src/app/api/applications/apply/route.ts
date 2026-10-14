@@ -5,9 +5,30 @@ import { fullApplicationSchema } from "@/lib/validations/apply";
 
 export async function POST(request: Request) {
   try {
-    const json = await request.json();
-    const parsed = fullApplicationSchema.safeParse(json);
+    // 1. Require an authenticated session
+    const supabaseUser = await createClient();
+    const {
+      data: { user: currentUser },
+    } = await supabaseUser.auth.getUser();
 
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "You must be logged in to apply. Please create an account or log in first." },
+        { status: 401 }
+      );
+    }
+
+    const userId = currentUser.id;
+
+    // 2. Parse and validate the request body
+    let json: unknown;
+    try {
+      json = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+
+    const parsed = fullApplicationSchema.safeParse(json);
     if (!parsed.success) {
       const firstError = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0];
       return NextResponse.json(
@@ -18,81 +39,30 @@ export async function POST(request: Request) {
 
     const data = parsed.data;
     const supabaseAdmin = createAdminClient();
-    const supabaseUser = await createClient();
 
-    let userId: string;
-    let isNewUser = false;
+    // 3. Fetch the profile to get the authoritative name/email
+    const { data: profileRecord } = await supabaseAdmin
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", userId)
+      .maybeSingle();
 
-    // 1. Check if user is already logged in
-    const {
-      data: { user: currentUser },
-    } = await supabaseUser.auth.getUser();
+    // Use profile values when available; fall back to auth user metadata
+    const authMeta = currentUser.user_metadata ?? {};
+    const authorFirstName: string =
+      profileRecord?.first_name ||
+      authMeta.first_name ||
+      "";
+    const authorLastName: string =
+      profileRecord?.last_name ||
+      authMeta.last_name ||
+      "";
+    const authorEmail: string =
+      profileRecord?.email ||
+      currentUser.email ||
+      "";
 
-    if (currentUser) {
-      userId = currentUser.id;
-    } else {
-      // For unauthenticated flow, password is strictly required
-      if (!data.password || data.password.length < 8) {
-        return NextResponse.json(
-          { error: "Password must be at least 8 characters with at least one letter and number." },
-          { status: 400 }
-        );
-      }
-
-      // Check if email already exists in profiles or auth
-      const { data: existingProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("id, email")
-        .eq("email", data.email.trim().toLowerCase())
-        .maybeSingle();
-
-      if (existingProfile) {
-        return NextResponse.json(
-          {
-            error: "An account with this email already exists. Please log in to apply.",
-            isExistingUser: true,
-          },
-          { status: 400 }
-        );
-      }
-
-      // Create new Supabase auth user
-      const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
-      const { data: authUser, error: createError } =
-        await supabaseAdmin.auth.admin.createUser({
-          email: data.email.trim().toLowerCase(),
-          password: data.password,
-          email_confirm: true,
-          user_metadata: {
-            first_name: data.firstName.trim(),
-            last_name: data.lastName.trim(),
-            full_name: fullName,
-            phone: data.phone.trim(),
-          },
-        });
-
-      if (createError || !authUser.user) {
-        // If auth user already exists in auth.users but not in profiles
-        if (createError?.message?.toLowerCase().includes("already registered") || createError?.message?.toLowerCase().includes("exists")) {
-          return NextResponse.json(
-            {
-              error: "An account with this email already exists. Please log in to apply.",
-              isExistingUser: true,
-            },
-            { status: 400 }
-          );
-        }
-        return NextResponse.json(
-          { error: createError?.message || "Failed to create user account" },
-          { status: 500 }
-        );
-      }
-
-      userId = authUser.user.id;
-      isNewUser = true;
-    }
-
-    // 2. Fetch internship details to verify and get title
+    // 4. Fetch internship details to verify it exists
     const { data: internship, error: internshipError } = await supabaseAdmin
       .from("internships")
       .select("id, title, slug")
@@ -106,7 +76,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Block duplicate active applications: one PENDING or APPROVED application per internship
+    // 5. Block duplicate active applications
     const { data: existingApp } = await supabaseAdmin
       .from("applications")
       .select("id, status")
@@ -125,7 +95,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Handle Profile Photo Upload if base64 provided
+    // 6. Handle Profile Photo Upload if base64 provided
     let photoUrl = data.photoUrl || null;
     if (data.photoBase64 && data.photoBase64.startsWith("data:image")) {
       try {
@@ -158,7 +128,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4b. Handle Resume PDF Upload if base64 provided
+    // 7. Handle Resume PDF Upload if base64 provided
     let resumeUrl = data.resumeUrl || null;
     let resumeFileName = data.resumeFileName || null;
     if (data.resumeBase64 && data.resumeBase64.includes(";base64,")) {
@@ -169,7 +139,6 @@ export async function POST(request: Request) {
           const base64Data = matches[2];
           const buffer = Buffer.from(base64Data, "base64");
 
-          // Server-side validation: PDF only and max 2 MB
           if (mimeType !== "application/pdf" && mimeType !== "application/x-pdf") {
             return NextResponse.json(
               { error: "Invalid resume format. Only PDF files are accepted." },
@@ -207,14 +176,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Update / Upsert Profile record
+    // 8. Update / Upsert Profile record
+    // IMPORTANT: first_name, last_name, email come from the session, NOT from the client payload
     const profilePayload: Record<string, any> = {
-      first_name: data.firstName.trim(),
-      last_name: data.lastName.trim(),
+      first_name: authorFirstName,
+      last_name: authorLastName,
+      email: authorEmail,
       gender: data.gender,
       date_of_birth: data.dateOfBirth ? data.dateOfBirth : null,
       phone: data.phone.trim(),
-      email: data.email.trim().toLowerCase(),
       whatsapp: data.whatsapp ? data.whatsapp.trim() : null,
       address: data.address ? data.address.trim() : null,
       city: data.city.trim(),
@@ -225,7 +195,6 @@ export async function POST(request: Request) {
       degree: data.degree.trim(),
       department: data.department.trim(),
       passout_year: data.passoutYear.trim(),
-      referral_code: data.referralCode ? data.referralCode.trim() : null,
       role: "student",
       consent_at: new Date().toISOString(),
       consent_version: "October 2026",
@@ -235,13 +204,11 @@ export async function POST(request: Request) {
     if (photoUrl) {
       profilePayload.photo_url = photoUrl;
     }
-
     if (resumeUrl) {
       profilePayload.resume_url = resumeUrl;
       profilePayload.resume_file_name = resumeFileName;
     }
 
-    // Check if profile row exists
     const { data: existingProfileRow } = await supabaseAdmin
       .from("profiles")
       .select("id, student_id")
@@ -249,28 +216,36 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingProfileRow) {
-      await supabaseAdmin
-        .from("profiles")
-        .update(profilePayload)
-        .eq("id", userId);
+      await supabaseAdmin.from("profiles").update(profilePayload).eq("id", userId);
     } else {
-      // Generate clean student ID if sequence isn't auto-firing
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const studentId = `CE2026${randomSuffix}`;
       profilePayload.id = userId;
       profilePayload.student_id = studentId;
-
       await supabaseAdmin.from("profiles").insert(profilePayload);
     }
 
-    // 6. Create Application with status PENDING
+    // 9. Create Application with status PENDING
+    // Compute end date: start + 1 month - 1 day
+    const [startYear, startMonth, startDay] = data.startDate.split("-").map(Number);
+    const startDateObj = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+    const endDateObj = new Date(
+      Date.UTC(
+        startDateObj.getUTCFullYear(),
+        startDateObj.getUTCMonth() + 1,
+        startDateObj.getUTCDate()
+      )
+    );
+    endDateObj.setUTCDate(endDateObj.getUTCDate() - 1);
+    const computedEndDate = endDateObj.toISOString().split("T")[0];
+
     const { data: application, error: appError } = await supabaseAdmin
       .from("applications")
       .insert({
         user_id: userId,
         internship_id: data.internshipId,
         start_date: data.startDate,
-        end_date: data.endDate,
+        end_date: computedEndDate,
         mode: data.mode || "Remote",
         type: data.type || "INTERNSHIP",
         status: "PENDING",
@@ -288,7 +263,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 7. Create in-app Notification
+    // 10. Create in-app Notification
     await supabaseAdmin.from("notifications").insert({
       user_id: userId,
       title: "Application Submitted",
@@ -296,13 +271,7 @@ export async function POST(request: Request) {
       link: "/dashboard/applications",
     });
 
-    return NextResponse.json({
-      success: true,
-      application,
-      isNewUser,
-      email: isNewUser ? data.email.trim().toLowerCase() : undefined,
-      password: isNewUser ? data.password : undefined,
-    });
+    return NextResponse.json({ success: true, application });
   } catch (err: any) {
     console.error("Apply API error:", err);
     return NextResponse.json(

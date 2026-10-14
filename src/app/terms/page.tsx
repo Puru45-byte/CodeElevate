@@ -151,7 +151,7 @@ export default function TermsPage() {
       {/* Section 3 */}
       <LegalSection id="eligibility-account" title="3. Eligibility & Account Security">
         <p>
-          When registering or submitting an application on CodeElevate, you agree to:
+          When creating an account and when applying on CodeElevate, you agree to:
         </p>
         <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-600">
           <li><strong>Provide Accurate Information:</strong> Submit true, current, and complete details regarding your identity, college, degree, contact number, and email.</li>

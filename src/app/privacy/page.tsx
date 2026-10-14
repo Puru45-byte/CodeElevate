@@ -232,7 +232,7 @@ export default function PrivacyPage() {
       {/* Section 4 */}
       <LegalSection id="consent-withdrawal" title="4. Student Consent & Right to Withdraw">
         <p>
-          <strong>Giving Consent:</strong> When you complete our application form and register an account, you must check a mandatory consent checkbox that directly links to this Privacy Policy. By ticking this box, you provide freely given, specific, informed, and unambiguous consent under the DPDP Act 2023.
+          <strong>Giving Consent:</strong> When creating an account and when applying, you must check a mandatory consent checkbox that directly links to this Privacy Policy. By ticking this box, you provide freely given, specific, informed, and unambiguous consent under the DPDP Act 2023.
         </p>
         <p>
           <strong>Withdrawing Consent:</strong> You have the legal right to withdraw your consent at any time by sending an email from your registered email address to our Grievance Officer at <a href={`mailto:${business.grievanceOfficer.email}`} className="text-blue-600 font-medium hover:underline">{business.grievanceOfficer.email}</a>.

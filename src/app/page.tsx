@@ -333,8 +333,8 @@ export default async function HomePage() {
               },
               {
                 num: "02",
-                title: "Apply for a Track",
-                desc: "Submit your profile and select your preferred start date. Applications are reviewed within 24 hours.",
+                title: "Create Account & Apply",
+                desc: "Create your student account, submit your profile, and select your preferred start date.",
                 icon: FileCheck,
                 color: "bg-blue-50 text-blue-700",
               },

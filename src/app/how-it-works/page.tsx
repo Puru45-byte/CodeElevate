@@ -35,8 +35,8 @@ const STEPS = [
   },
   {
     num: "02",
-    title: "Apply for the Internship",
-    desc: "Fill in your profile details — name, college, department, and preferred dates. Your application is reviewed by the CodeElevate team, typically within 24 hours.",
+    title: "Create Account & Apply",
+    desc: "Create your student account, choose your internship track, and submit your profile details — college, department, and preferred dates. Your application is reviewed by the CodeElevate team, typically within 24 hours.",
     icon: FileCheck,
     color: "bg-indigo-50 text-indigo-600",
     highlight: "bg-indigo-600",

@@ -88,8 +88,26 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+function isSafeRedirect(path?: string | null): path is string {
+  if (!path || typeof path !== "string") return false;
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  if (path.includes("\\")) return false;
+  try {
+    const url = new URL(path, "https://codeelevate.local");
+    if (url.origin !== "https://codeelevate.local") return false;
+    if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
   // Redirect authenticated user away from login/register
   if (user && (pathname === "/login" || pathname === "/register")) {
+    const nextParam = request.nextUrl.searchParams.get("next") || request.nextUrl.searchParams.get("redirect");
+    if (isSafeRedirect(nextParam)) {
+      return NextResponse.redirect(new URL(nextParam, request.url));
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

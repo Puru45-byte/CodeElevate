@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, ArrowRight, CheckCircle2, Code2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { isSafeRedirect } from "@/lib/utils";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -26,7 +27,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "";
+  const nextParam = searchParams.get("next") || searchParams.get("redirect") || "";
   const message = searchParams.get("message") || "";
 
   const {
@@ -81,8 +82,8 @@ export function LoginForm() {
 
       const role = profile?.role || "student";
 
-      if (redirectTo && redirectTo.startsWith("/")) {
-        router.push(redirectTo);
+      if (isSafeRedirect(nextParam)) {
+        router.push(nextParam);
       } else if (role === "admin") {
         router.push("/admin");
       } else {
@@ -212,19 +213,20 @@ export function LoginForm() {
         </Button>
       </form>
 
-      {/* Info notice about registration */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-center">
-        <p className="text-xs text-slate-600 leading-relaxed">
-          New to CodeElevate? Registration happens automatically when you submit
-          your first internship application.
+      {/* New to CodeElevate? box */}
+      <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-center space-y-2.5">
+        <p className="text-xs font-semibold text-slate-700">
+          New to CodeElevate?
         </p>
-        <Link
-          href="/internships"
-          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 mt-2"
+        <Button
+          asChild
+          variant="outline"
+          className="w-full h-10 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-100 text-slate-800"
         >
-          <span>Explore Internships & Apply</span>
-          <ArrowRight className="h-3 w-3" />
-        </Link>
+          <Link href={`/register${nextParam ? `?next=${encodeURIComponent(nextParam)}` : ""}`}>
+            Create an account
+          </Link>
+        </Button>
       </div>
     </div>
   );

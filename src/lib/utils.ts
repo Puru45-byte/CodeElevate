@@ -29,3 +29,23 @@ export function computeEndDate(startDate: Date = new Date()): Date {
   end.setDate(end.getDate() - 1);
   return end;
 }
+
+/**
+ * Checks whether a path is a safe relative internal redirect.
+ * - Must start with a single "/" and NOT "//"
+ * - Must NOT contain backslashes or protocol/scheme prefixes
+ */
+export function isSafeRedirect(path?: string | null): path is string {
+  if (!path || typeof path !== "string") return false;
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  if (path.includes("\\")) return false;
+  try {
+    const url = new URL(path, "https://codeelevate.local");
+    if (url.origin !== "https://codeelevate.local") return false;
+    if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+

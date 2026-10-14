@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -11,17 +11,14 @@ import {
   step2AddressSchema,
   step3EducationSchema,
   step4InternshipSchema,
-  step5AccountSchema,
   Step1PersonalData,
   Step2AddressData,
   Step3EducationData,
   Step4InternshipData,
-  Step5AccountData,
   FullApplicationData,
 } from "@/lib/validations/apply";
 import { INDIAN_STATES, DEGREES, GENDERS, PASSOUT_YEARS } from "@/lib/constants";
 import { Internship, Profile } from "@/types/database";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,8 +40,6 @@ import {
   Briefcase,
   Lock,
   Upload,
-  Eye,
-  EyeOff,
   AlertCircle,
   Loader2,
   Building,
@@ -67,10 +62,7 @@ const STEPS = [
   { id: 2, name: "Address", label: "Address & Location", icon: MapPin },
   { id: 3, name: "Education", label: "Academic Info", icon: GraduationCap },
   { id: 4, name: "Internship", label: "Track & Dates", icon: Briefcase },
-  { id: 5, name: "Account", label: "Security & Account", icon: Lock },
 ];
-
-const STORAGE_KEY = "codeelevate_apply_draft_v2";
 
 export function ApplyForm({
   initialInternship,
@@ -82,6 +74,82 @@ export function ApplyForm({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedInternship, setSelectedInternship] =
     useState<Internship>(initialInternship);
+
+  // If logged out: render the small gate card
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto my-12">
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xl shadow-slate-200/40 text-center space-y-6">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm border border-blue-100">
+            <Lock className="h-7 w-7 text-blue-600" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50/50 text-[11px] font-bold">
+              {selectedInternship.title}
+            </Badge>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Create an account or log in to apply for {selectedInternship.title}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              You must have a verified student account before submitting your application.
+              Your account gives you access to the curriculum, tasks, and certification.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Button asChild className="w-full h-11 rounded-xl text-sm font-bold shadow-md shadow-blue-600/20 gap-2">
+              <Link href={`/register?next=/apply/${encodeURIComponent(selectedInternship.slug)}`}>
+                <span>Create Account</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+
+            <Button asChild variant="outline" className="w-full h-11 rounded-xl text-sm font-bold border-slate-200 hover:bg-slate-50 text-slate-700">
+              <Link href={`/login?next=/apply/${encodeURIComponent(selectedInternship.slug)}`}>
+                <span>Log In</span>
+              </Link>
+            </Button>
+          </div>
+
+          <p className="text-[11px] text-slate-400">
+            Application is 100% free with no upfront fees.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ApplyFormInner
+      selectedInternship={selectedInternship}
+      setSelectedInternship={setSelectedInternship}
+      allInternships={allInternships}
+      existingProfile={existingProfile}
+      router={router}
+      currentStep={currentStep}
+      setCurrentStep={setCurrentStep}
+    />
+  );
+}
+
+function ApplyFormInner({
+  selectedInternship,
+  setSelectedInternship,
+  allInternships,
+  existingProfile,
+  router,
+  currentStep,
+  setCurrentStep,
+}: {
+  selectedInternship: Internship;
+  setSelectedInternship: (i: Internship) => void;
+  allInternships: Internship[];
+  existingProfile: Profile | null;
+  router: any;
+  currentStep: number;
+  setCurrentStep: (s: number) => void;
+}) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     existingProfile?.photo_url || null
   );
@@ -99,12 +167,8 @@ export function ApplyForm({
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [isResumeUploading, setIsResumeUploading] = useState<boolean>(false);
 
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<{
-    message: string;
-    loginUrl?: string;
-  } | null>(null);
+  const [serverError, setServerError] = useState<{ message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,15 +185,16 @@ export function ApplyForm({
     step2: Partial<Step2AddressData>;
     step3: Partial<Step3EducationData>;
     step4: Partial<Step4InternshipData>;
-    step5: Partial<Step5AccountData>;
   }>({
     step1: {
       firstName: existingProfile?.first_name || "",
       lastName: existingProfile?.last_name || "",
-      gender: existingProfile?.gender || "Male",
-      dateOfBirth: existingProfile?.date_of_birth || "",
-      phone: existingProfile?.phone || "",
       email: existingProfile?.email || "",
+      gender: existingProfile?.gender || "Male",
+      dateOfBirth: existingProfile?.date_of_birth
+        ? format(new Date(existingProfile.date_of_birth), "yyyy-MM-dd")
+        : "",
+      phone: existingProfile?.phone || "",
       whatsapp: existingProfile?.whatsapp || "",
       photoUrl: existingProfile?.photo_url || "",
       resumeUrl: existingProfile?.resume_url || "",
@@ -149,86 +214,14 @@ export function ApplyForm({
       passoutYear: existingProfile?.passout_year || "2026",
     },
     step4: {
-      internshipId: initialInternship.id,
-      domain: initialInternship.title,
+      internshipId: selectedInternship.id,
+      domain: selectedInternship.title,
       type: "Internship",
       mode: "Remote",
       startDate: todayStr,
       endDate: defaultEndDateStr,
     },
-    step5: {
-      password: "",
-      confirmPassword: "",
-      referralCode: "",
-      agreeToTerms: true,
-    },
   });
-
-  // If logged in and profile is complete, we can jump to step 4
-  useEffect(() => {
-    if (isLoggedIn && existingProfile?.first_name && existingProfile?.college) {
-      setCurrentStep(4);
-    }
-  }, [isLoggedIn, existingProfile]);
-
-  // Load draft from sessionStorage if not logged in
-  useEffect(() => {
-    if (typeof window !== "undefined" && !isLoggedIn) {
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setFormData((prev) => ({
-            ...prev,
-            step1: { ...prev.step1, ...parsed.step1 },
-            step2: { ...prev.step2, ...parsed.step2 },
-            step3: { ...prev.step3, ...parsed.step3 },
-            step4: {
-              ...prev.step4,
-              ...parsed.step4,
-              internshipId: initialInternship.id,
-              domain: initialInternship.title,
-            },
-          }));
-          if (parsed.photoPreview) {
-            setPhotoPreview(parsed.photoPreview);
-          }
-          if (parsed.resumePreview) {
-            setResumePreview(parsed.resumePreview);
-          }
-          if (parsed.resumeFileName) {
-            setResumeFileName(parsed.resumeFileName);
-          }
-          if (parsed.resumeFileSize) {
-            setResumeFileSize(parsed.resumeFileSize);
-          }
-        }
-      } catch (e) {
-        console.warn("Could not parse draft application data", e);
-      }
-    }
-  }, [isLoggedIn, initialInternship]);
-
-  // Save draft on change (excluding passwords)
-  const saveDraft = (updated: typeof formData) => {
-    if (typeof window !== "undefined" && !isLoggedIn) {
-      try {
-        const safeData = {
-          step1: updated.step1,
-          step2: updated.step2,
-          step3: updated.step3,
-          step4: updated.step4,
-          photoPreview,
-          resumePreview,
-          resumeFileName,
-          resumeFileSize,
-        };
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safeData));
-      } catch (e) {
-        console.warn("Could not save application draft", e);
-      }
-    }
-  };
 
   // Step 1 Form
   const form1 = useForm<Step1PersonalData>({
@@ -259,12 +252,6 @@ export function ApplyForm({
       startDate: formData.step4.startDate || todayStr,
       endDate: formData.step4.endDate || defaultEndDateStr,
     },
-  });
-
-  // Step 5 Form
-  const form5 = useForm<Step5AccountData>({
-    resolver: zodResolver(step5AccountSchema),
-    values: formData.step5 as Step5AccountData,
   });
 
   // Photo change handler
@@ -298,7 +285,6 @@ export function ApplyForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validation: PDF only
     const isPdf =
       file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf) {
@@ -306,7 +292,6 @@ export function ApplyForm({
       return;
     }
 
-    // Validation: Max 2 MB
     if (file.size > 2 * 1024 * 1024) {
       setResumeError("Resume file size must be less than 2 MB.");
       return;
@@ -380,7 +365,6 @@ export function ApplyForm({
       },
     };
     setFormData(updated);
-    saveDraft(updated);
     setServerError(null);
     setCurrentStep(2);
   });
@@ -388,7 +372,6 @@ export function ApplyForm({
   const onStep2Next = form2.handleSubmit((data) => {
     const updated = { ...formData, step2: data };
     setFormData(updated);
-    saveDraft(updated);
     setServerError(null);
     setCurrentStep(3);
   });
@@ -396,43 +379,29 @@ export function ApplyForm({
   const onStep3Next = form3.handleSubmit((data) => {
     const updated = { ...formData, step3: data };
     setFormData(updated);
-    saveDraft(updated);
     setServerError(null);
     setCurrentStep(4);
   });
 
-  const onStep4Next = form4.handleSubmit((data) => {
+  const onStep4Submit = form4.handleSubmit((data) => {
     const updated = { ...formData, step4: data };
     setFormData(updated);
-    saveDraft(updated);
     setServerError(null);
-
-    // If already logged in, we submit directly from step 4
-    if (isLoggedIn) {
-      executeSubmission(updated);
-    } else {
-      setCurrentStep(5);
-    }
-  });
-
-  const onStep5Submit = form5.handleSubmit((data) => {
-    const updated = { ...formData, step5: data };
-    setFormData(updated);
     executeSubmission(updated);
   });
 
-  // Final Submission
+  // Final Submission to API
   const executeSubmission = async (fullData: typeof formData) => {
     setIsSubmitting(true);
     setServerError(null);
 
     const payload: FullApplicationData = {
-      firstName: fullData.step1.firstName || "",
-      lastName: fullData.step1.lastName || "",
+      firstName: existingProfile?.first_name || fullData.step1.firstName || "",
+      lastName: existingProfile?.last_name || fullData.step1.lastName || "",
+      email: existingProfile?.email || fullData.step1.email || "",
       gender: fullData.step1.gender || "Male",
       dateOfBirth: fullData.step1.dateOfBirth || "",
       phone: fullData.step1.phone || "",
-      email: fullData.step1.email || "",
       whatsapp: fullData.step1.whatsapp || "",
       photoUrl: fullData.step1.photoUrl || "",
       photoBase64: photoBase64 || undefined,
@@ -454,9 +423,6 @@ export function ApplyForm({
       mode: "Remote",
       startDate: fullData.step4.startDate || todayStr,
       endDate: fullData.step4.endDate || defaultEndDateStr,
-      password: isLoggedIn ? "" : fullData.step5.password || "",
-      confirmPassword: isLoggedIn ? "" : fullData.step5.confirmPassword || "",
-      referralCode: fullData.step5.referralCode || "",
     };
 
     try {
@@ -469,30 +435,9 @@ export function ApplyForm({
       const resData = await res.json();
 
       if (!res.ok) {
-        if (resData.isExistingUser) {
-          setServerError({
-            message: resData.error,
-            loginUrl: `/login?redirect=/apply/${selectedInternship.slug}`,
-          });
-        } else {
-          setServerError({ message: resData.error || "Application submission failed." });
-        }
+        setServerError({ message: resData.error || "Application submission failed." });
         setIsSubmitting(false);
         return;
-      }
-
-      // If new user was created, sign in to establish client session
-      if (resData.isNewUser && resData.email && resData.password) {
-        const supabase = createClient();
-        await supabase.auth.signInWithPassword({
-          email: resData.email,
-          password: resData.password,
-        });
-      }
-
-      // Clear draft storage
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem(STORAGE_KEY);
       }
 
       toast.success("Application submitted successfully!");
@@ -506,19 +451,18 @@ export function ApplyForm({
     }
   };
 
-  const maxSteps = isLoggedIn ? 4 : 5;
-  const progressPercent = Math.round((currentStep / maxSteps) * 100);
+  const progressPercent = Math.round((currentStep / 4) * 100);
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8">
-      {/* ────────────────── HEADER & TRACK PREVIEW ────────────────── */}
+      {/* HEADER & TRACK PREVIEW */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50 p-2.5 shadow-sm ring-1 ring-blue-100">
             <Image
               src={
                 selectedInternship.icon_url ||
-                selectedInternship.icon ||
+                (selectedInternship as any).icon ||
                 "/icons/open-book.png"
               }
               alt={selectedInternship.title}
@@ -546,30 +490,17 @@ export function ApplyForm({
               Apply for {selectedInternship.title}
             </h1>
             <p className="text-xs text-slate-500">
-              Complete this 5-step registration to enroll in the upcoming batch.
+              Complete this application to enroll in the upcoming batch.
             </p>
           </div>
         </div>
-
-        {!isLoggedIn && (
-          <div className="text-left sm:text-right shrink-0">
-            <span className="text-xs text-slate-400 block">Already registered?</span>
-            <Link
-              href={`/login?redirect=/apply/${selectedInternship.slug}`}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors inline-flex items-center gap-1"
-            >
-              <span>Log in to apply</span>
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-        )}
       </div>
 
-      {/* ────────────────── STEPPER NAVIGATION (Collage Screen 3) ────────────────── */}
+      {/* STEPPER NAVIGATION */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-4">
         {/* Step Numbers Bar */}
-        <div className="grid grid-cols-5 gap-2 sm:gap-4">
-          {STEPS.filter((s) => !isLoggedIn || s.id <= 4).map((step) => {
+        <div className="grid grid-cols-4 gap-2 sm:gap-4">
+          {STEPS.map((step) => {
             const isDone = currentStep > step.id;
             const isCurrent = currentStep === step.id;
             const Icon = step.icon;
@@ -578,34 +509,40 @@ export function ApplyForm({
               <button
                 key={step.id}
                 type="button"
+                onClick={() => {
+                  if (isDone) setCurrentStep(step.id);
+                }}
                 disabled={!isDone && !isCurrent}
-                onClick={() => isDone && setCurrentStep(step.id)}
-                className={`group flex flex-col items-center gap-2 p-2 rounded-2xl transition-all text-center ${
+                className={`flex flex-col sm:flex-row items-center sm:items-start gap-2.5 p-3 rounded-2xl text-left transition-all ${
                   isCurrent
-                    ? "bg-blue-50/80 text-blue-700 font-bold ring-1 ring-blue-200"
+                    ? "bg-blue-50/80 border border-blue-200 ring-2 ring-blue-600/10"
                     : isDone
-                    ? "text-slate-700 hover:bg-slate-50 cursor-pointer"
-                    : "text-slate-400 opacity-60 cursor-not-allowed"
+                    ? "hover:bg-slate-50 border border-transparent cursor-pointer"
+                    : "opacity-40 border border-transparent cursor-not-allowed"
                 }`}
               >
                 <div
-                  className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-xs sm:text-sm font-bold transition-transform ${
-                    isCurrent
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-105"
-                      : isDone
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-400"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold text-xs transition-colors ${
+                    isDone
+                      ? "bg-emerald-500 text-white"
+                      : isCurrent
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
+                      : "bg-slate-100 text-slate-500"
                   }`}
                 >
-                  {isDone ? <Check className="h-4 w-4 stroke-[3]" /> : <Icon className="h-4 w-4" />}
+                  {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                 </div>
-                <div className="hidden sm:block">
-                  <p className="text-[11px] font-bold leading-tight line-clamp-1">
-                    {step.name}
-                  </p>
-                  <p className="text-[10px] text-slate-400 leading-none mt-0.5">
+                <div className="hidden sm:block overflow-hidden">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Step {step.id}
-                  </p>
+                  </div>
+                  <div
+                    className={`text-xs font-bold truncate ${
+                      isCurrent ? "text-blue-900" : "text-slate-700"
+                    }`}
+                  >
+                    {step.name}
+                  </div>
                 </div>
               </button>
             );
@@ -613,46 +550,28 @@ export function ApplyForm({
         </div>
 
         {/* Linear Progress Bar */}
-        <div className="space-y-1.5 pt-2">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
-            <span>
-              Step {currentStep} of {maxSteps}: {STEPS[currentStep - 1]?.label}
-            </span>
-            <span className="text-blue-600 font-bold">{progressPercent}% Completed</span>
-          </div>
-          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div
+            className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 
-      {/* ────────────────── SERVER ERROR BANNER ────────────────── */}
+      {/* SERVER ERROR BANNER */}
       {serverError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 flex items-start gap-3.5 text-sm text-red-800 animate-in fade-in">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
-          <div className="space-y-2 flex-1">
-            <p className="font-semibold text-xs sm:text-sm">{serverError.message}</p>
-            {serverError.loginUrl && (
-              <Link href={serverError.loginUrl}>
-                <Button
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold gap-1.5 h-8 mt-1"
-                >
-                  <span>Go to Login</span>
-                  <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            )}
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-red-900">Application Error</h3>
+            <p className="text-xs text-red-700">{serverError.message}</p>
           </div>
         </div>
       )}
 
-      {/* ────────────────── STEP FORMS ────────────────── */}
+      {/* STEP FORMS */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-xl shadow-slate-200/30">
-        {/* ──────── STEP 1: PERSONAL DETAILS ──────── */}
+        {/* STEP 1: PERSONAL DETAILS */}
         {currentStep === 1 && (
           <form onSubmit={onStep1Next} className="space-y-6">
             <div className="border-b border-slate-100 pb-4">
@@ -661,7 +580,7 @@ export function ApplyForm({
                 <span>Step 1: Personal Information</span>
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Enter your identity and contact information as they should appear on your verified certificate.
+                Your name and email are pre-filled from your verified student account.
               </p>
             </div>
 
@@ -739,71 +658,67 @@ export function ApplyForm({
                   {isResumeUploading ? (
                     <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
                   ) : resumePreview ? (
-                    <FileText className="h-8 w-8 text-red-500" />
+                    <FileText className="h-8 w-8 text-blue-600" />
                   ) : (
-                    <FileText className="h-8 w-8 text-slate-400" />
+                    <Upload className="h-8 w-8 text-slate-400" />
                   )}
                 </div>
-                <div className="space-y-1.5 text-center sm:text-left flex-1 min-w-0">
+                <div className="space-y-1.5 text-center sm:text-left flex-1">
                   <input
-                    type="file"
                     id="resumeInput"
+                    type="file"
                     ref={resumeInputRef}
                     accept="application/pdf"
-                    aria-label="Upload Resume"
                     onChange={handleResumeSelect}
                     className="hidden"
                   />
-                  
                   {resumePreview ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-center sm:justify-start gap-2">
-                        <span className="font-bold text-slate-900 text-xs line-clamp-1 max-w-[200px] sm:max-w-[260px]">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-800 truncate max-w-xs block">
                           {resumeFileName || "Student_Resume.pdf"}
                         </span>
                         {resumeFileSize && (
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-slate-400 font-medium">
                             ({resumeFileSize})
                           </span>
                         )}
-                      </div>
-                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
-                        <a
-                          href={resumePreview}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100"
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 h-4"
                         >
-                          <span>View</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                          Ready
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => resumeInputRef.current?.click()}
-                          className="text-xs font-bold rounded-xl h-8 gap-1.5"
+                          className="text-xs font-bold rounded-xl h-9 gap-1.5"
                         >
                           <Upload className="h-3.5 w-3.5 text-blue-600" />
-                          <span>Change Resume</span>
+                          <span>Replace Resume</span>
                         </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setResumePreview(null);
-                            setResumeBase64(null);
-                            setResumeFileName(null);
-                            setResumeFileSize(null);
-                            form1.setValue("resumeUrl", "");
-                            setResumeError("Resume / CV is required. Please upload your resume in PDF format.");
-                            if (resumeInputRef.current) resumeInputRef.current.value = "";
-                          }}
-                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
-                        >
-                          Remove
-                        </Button>
+                        {!resumePreview.startsWith("data:") && (
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-9 gap-1"
+                          >
+                            <a
+                              href={resumePreview}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>View Current PDF</span>
+                            </a>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -844,17 +759,26 @@ export function ApplyForm({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {/* First Name */}
+              {/* First Name (Locked) */}
               <div className="space-y-1.5">
-                <Label htmlFor="firstName" className="text-xs font-bold text-slate-700">
-                  First Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="firstName"
-                  placeholder="e.g. Alex"
-                  className="h-11 rounded-xl text-sm"
-                  {...form1.register("firstName")}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="firstName" className="text-xs font-bold text-slate-700">
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                    <Lock className="h-3 w-3" /> Account locked
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="firstName"
+                    type="text"
+                    readOnly
+                    className="pl-10 h-11 rounded-xl text-sm bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed select-none font-medium"
+                    {...form1.register("firstName")}
+                  />
+                </div>
                 {form1.formState.errors.firstName && (
                   <p className="text-[11px] text-red-600 font-medium">
                     {form1.formState.errors.firstName.message}
@@ -862,20 +786,56 @@ export function ApplyForm({
                 )}
               </div>
 
-              {/* Last Name */}
+              {/* Last Name (Locked) */}
               <div className="space-y-1.5">
-                <Label htmlFor="lastName" className="text-xs font-bold text-slate-700">
-                  Last Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="lastName"
-                  placeholder="e.g. Johnson"
-                  className="h-11 rounded-xl text-sm"
-                  {...form1.register("lastName")}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="lastName" className="text-xs font-bold text-slate-700">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                    <Lock className="h-3 w-3" /> Account locked
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="lastName"
+                    type="text"
+                    readOnly
+                    className="pl-10 h-11 rounded-xl text-sm bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed select-none font-medium"
+                    {...form1.register("lastName")}
+                  />
+                </div>
                 {form1.formState.errors.lastName && (
                   <p className="text-[11px] text-red-600 font-medium">
                     {form1.formState.errors.lastName.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Email Address (Locked) */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="email" className="text-xs font-bold text-slate-700">
+                    Email Address <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                    <Lock className="h-3 w-3" /> Account locked
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    readOnly
+                    className="pl-10 h-11 rounded-xl text-sm bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed select-none font-medium"
+                    {...form1.register("email")}
+                  />
+                </div>
+                {form1.formState.errors.email && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form1.formState.errors.email.message}
                   </p>
                 )}
               </div>
@@ -947,29 +907,10 @@ export function ApplyForm({
                 )}
               </div>
 
-              {/* Email Address */}
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs font-bold text-slate-700">
-                  Email Address <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="alex@college.edu"
-                  className="h-11 rounded-xl text-sm"
-                  {...form1.register("email")}
-                />
-                {form1.formState.errors.email && (
-                  <p className="text-[11px] text-red-600 font-medium">
-                    {form1.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
               {/* WhatsApp */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="whatsapp" className="text-xs font-bold text-slate-700">
-                  WhatsApp Number (Optional for task updates)
+                  WhatsApp Number (Optional)
                 </Label>
                 <div className="relative">
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 border-r border-slate-200 pr-2">
@@ -977,7 +918,7 @@ export function ApplyForm({
                   </div>
                   <Input
                     id="whatsapp"
-                    placeholder="9876543210 (Optional)"
+                    placeholder="Same as phone number"
                     maxLength={10}
                     className="pl-14 h-11 rounded-xl text-sm"
                     {...form1.register("whatsapp")}
@@ -992,19 +933,19 @@ export function ApplyForm({
             </div>
 
             {/* Step 1 Actions */}
-            <div className="flex items-center justify-end pt-4 border-t border-slate-100">
+            <div className="flex justify-end pt-4 border-t border-slate-100">
               <Button
                 type="submit"
                 className="h-11 px-6 rounded-xl text-sm font-bold shadow-md shadow-blue-600/20 gap-2"
               >
-                <span>Continue to Address</span>
+                <span>Next: Address & Location</span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </form>
         )}
 
-        {/* ──────── STEP 2: ADDRESS & LOCATION ──────── */}
+        {/* STEP 2: ADDRESS */}
         {currentStep === 2 && (
           <form onSubmit={onStep2Next} className="space-y-6">
             <div className="border-b border-slate-100 pb-4">
@@ -1013,108 +954,98 @@ export function ApplyForm({
                 <span>Step 2: Address & Location</span>
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Provide your current residential address for official dispatch and records.
+                Provide your permanent address for certificate dispatch and record verification.
               </p>
             </div>
 
-            <div className="space-y-5">
-              {/* Street Address */}
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="address" className="text-xs font-bold text-slate-700">
-                  Street / Area / Apartment (Optional)
+                  Address Line (Optional)
                 </Label>
                 <Input
                   id="address"
-                  placeholder="e.g. 124 Park Avenue, Flat 402"
+                  placeholder="Flat / House No., Street, Landmark"
                   className="h-11 rounded-xl text-sm"
                   {...form2.register("address")}
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* City */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="city" className="text-xs font-bold text-slate-700">
-                    City <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="city"
-                    placeholder="e.g. Pune"
-                    className="h-11 rounded-xl text-sm"
-                    {...form2.register("city")}
-                  />
-                  {form2.formState.errors.city && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form2.formState.errors.city.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="city" className="text-xs font-bold text-slate-700">
+                  City <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="city"
+                  placeholder="e.g. Pune"
+                  className="h-11 rounded-xl text-sm"
+                  {...form2.register("city")}
+                />
+                {form2.formState.errors.city && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form2.formState.errors.city.message}
+                  </p>
+                )}
+              </div>
 
-                {/* State */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-700">
-                    State <span className="text-red-500">*</span>
-                  </Label>
-                  <Controller
-                    name="state"
-                    control={form2.control}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || "Maharashtra"}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl text-sm">
-                          <SelectValue placeholder="Select State" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {INDIAN_STATES.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {form2.formState.errors.state && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form2.formState.errors.state.message}
-                    </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">
+                  State <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  name="state"
+                  control={form2.control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || "Maharashtra"}>
+                      <SelectTrigger className="h-11 rounded-xl text-sm">
+                        <SelectValue placeholder="Select State" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-56">
+                        {INDIAN_STATES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
+                />
+                {form2.formState.errors.state && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form2.formState.errors.state.message}
+                  </p>
+                )}
+              </div>
 
-                {/* Country */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="country" className="text-xs font-bold text-slate-700">
-                    Country <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="country"
-                    defaultValue="India"
-                    readOnly
-                    className="h-11 rounded-xl text-sm bg-slate-50 text-slate-500"
-                    {...form2.register("country")}
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pincode" className="text-xs font-bold text-slate-700">
+                  Pincode <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="pincode"
+                  placeholder="e.g. 411001"
+                  maxLength={6}
+                  className="h-11 rounded-xl text-sm"
+                  {...form2.register("pincode")}
+                />
+                {form2.formState.errors.pincode && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form2.formState.errors.pincode.message}
+                  </p>
+                )}
+              </div>
 
-                {/* Pincode */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="pincode" className="text-xs font-bold text-slate-700">
-                    Pincode <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="pincode"
-                    placeholder="411001"
-                    maxLength={6}
-                    className="h-11 rounded-xl text-sm"
-                    {...form2.register("pincode")}
-                  />
-                  {form2.formState.errors.pincode && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form2.formState.errors.pincode.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="country" className="text-xs font-bold text-slate-700">
+                  Country
+                </Label>
+                <Input
+                  id="country"
+                  readOnly
+                  disabled
+                  value="India"
+                  className="h-11 rounded-xl text-sm bg-slate-50 cursor-not-allowed"
+                />
               </div>
             </div>
 
@@ -1133,37 +1064,36 @@ export function ApplyForm({
                 type="submit"
                 className="h-11 px-6 rounded-xl text-sm font-bold shadow-md shadow-blue-600/20 gap-2"
               >
-                <span>Continue to Education</span>
+                <span>Next: Academic Info</span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </form>
         )}
 
-        {/* ──────── STEP 3: ACADEMIC INFO ──────── */}
+        {/* STEP 3: EDUCATION */}
         {currentStep === 3 && (
           <form onSubmit={onStep3Next} className="space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-blue-600" />
-                <span>Step 3: Academic & College Info</span>
+                <span>Step 3: Academic Information</span>
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Tell us about your current university degree and department.
+                Enter your college details. These credentials will be verified by mentors during code evaluation.
               </p>
             </div>
 
-            <div className="space-y-5">
-              {/* College */}
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="college" className="text-xs font-bold text-slate-700">
-                  College / University Name <span className="text-red-500">*</span>
+                  College / University <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
                   <Building className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     id="college"
-                    placeholder="e.g. National Institute of Technology"
+                    placeholder="e.g. Pune Institute of Computer Technology"
                     className="pl-10 h-11 rounded-xl text-sm"
                     {...form3.register("college")}
                   />
@@ -1175,90 +1105,79 @@ export function ApplyForm({
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                {/* Degree */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-700">
-                    Degree <span className="text-red-500">*</span>
-                  </Label>
-                  <Controller
-                    name="degree"
-                    control={form3.control}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || "B.Tech"}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl text-sm">
-                          <SelectValue placeholder="Select Degree" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DEGREES.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {d}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {form3.formState.errors.degree && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form3.formState.errors.degree.message}
-                    </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">
+                  Degree <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  name="degree"
+                  control={form3.control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || "B.Tech"}>
+                      <SelectTrigger className="h-11 rounded-xl text-sm">
+                        <SelectValue placeholder="Select Degree" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEGREES.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
+                />
+                {form3.formState.errors.degree && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form3.formState.errors.degree.message}
+                  </p>
+                )}
+              </div>
 
-                {/* Department / Branch */}
-                <div className="space-y-1.5 sm:col-span-1">
-                  <Label htmlFor="department" className="text-xs font-bold text-slate-700">
-                    Department / Branch <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="department"
-                    placeholder="e.g. Computer Science"
-                    className="h-11 rounded-xl text-sm"
-                    {...form3.register("department")}
-                  />
-                  {form3.formState.errors.department && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form3.formState.errors.department.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="department" className="text-xs font-bold text-slate-700">
+                  Department / Branch <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="department"
+                  placeholder="e.g. Computer Engineering"
+                  className="h-11 rounded-xl text-sm"
+                  {...form3.register("department")}
+                />
+                {form3.formState.errors.department && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form3.formState.errors.department.message}
+                  </p>
+                )}
+              </div>
 
-                {/* Passout Year */}
-                <div className="space-y-1.5 sm:col-span-1">
-                  <Label className="text-xs font-bold text-slate-700">
-                    Passout Year <span className="text-red-500">*</span>
-                  </Label>
-                  <Controller
-                    name="passoutYear"
-                    control={form3.control}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || "2026"}
-                      >
-                        <SelectTrigger className="h-11 rounded-xl text-sm">
-                          <SelectValue placeholder="Select Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PASSOUT_YEARS.map((y) => (
-                            <SelectItem key={y} value={y}>
-                              {y}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {form3.formState.errors.passoutYear && (
-                    <p className="text-[11px] text-red-600 font-medium">
-                      {form3.formState.errors.passoutYear.message}
-                    </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">
+                  Passout Year <span className="text-red-500">*</span>
+                </Label>
+                <Controller
+                  name="passoutYear"
+                  control={form3.control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || "2026"}>
+                      <SelectTrigger className="h-11 rounded-xl text-sm">
+                        <SelectValue placeholder="Select Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PASSOUT_YEARS.map((y) => (
+                          <SelectItem key={y} value={y}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                </div>
+                />
+                {form3.formState.errors.passoutYear && (
+                  <p className="text-[11px] text-red-600 font-medium">
+                    {form3.formState.errors.passoutYear.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1277,23 +1196,23 @@ export function ApplyForm({
                 type="submit"
                 className="h-11 px-6 rounded-xl text-sm font-bold shadow-md shadow-blue-600/20 gap-2"
               >
-                <span>Continue to Track Selection</span>
+                <span>Next: Internship Track</span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </form>
         )}
 
-        {/* ──────── STEP 4: INTERNSHIP SELECTION & DATES ──────── */}
+        {/* STEP 4: INTERNSHIP SELECTION & DATES */}
         {currentStep === 4 && (
-          <form onSubmit={onStep4Next} className="space-y-6">
+          <form onSubmit={onStep4Submit} className="space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <Briefcase className="h-5 w-5 text-blue-600" />
-                <span>Step 4: Internship Track & Schedule</span>
+                <span>Step 4: Internship Track & Preferred Dates</span>
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Confirm your selected domain track and choose your preferred start date.
+                Select your internship domain and preferred batch start date.
               </p>
             </div>
 
@@ -1301,62 +1220,39 @@ export function ApplyForm({
               {/* Domain Switcher */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-700">
-                  Internship Track / Domain <span className="text-red-500">*</span>
+                  Internship Track <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={selectedInternship.id}
                   onValueChange={handleDomainChange}
                 >
-                  <SelectTrigger className="h-12 rounded-xl text-sm font-bold">
-                    <SelectValue placeholder="Select Internship Track" />
+                  <SelectTrigger className="h-12 rounded-xl text-sm font-semibold">
+                    <SelectValue placeholder="Select domain" />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
-                    {allInternships.map((internship) => (
-                      <SelectItem key={internship.id} value={internship.id}>
-                        {internship.title} ({internship.category})
+                    {allInternships.map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Type and Mode (Read Only) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-700">
-                    Program Type
-                  </Label>
-                  <div className="h-11 rounded-xl bg-slate-50 border border-slate-200 px-3.5 flex items-center text-sm font-semibold text-slate-700">
-                    Practical Internship Program
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-700">
-                    Mode of Learning
-                  </Label>
-                  <div className="h-11 rounded-xl bg-slate-50 border border-slate-200 px-3.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>100% Remote / Online</span>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">
-                      Self-Paced
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Start and End Date */}
+              {/* Date pickers */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <Label htmlFor="startDate" className="text-xs font-bold text-slate-700">
-                    Start Date <span className="text-red-500">*</span>
+                    Preferred Start Date <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="startDate"
                     type="date"
                     min={todayStr}
-                    defaultValue={form4.getValues("startDate") || todayStr}
-                    onChange={(e) => handleStartDateChange(e.target.value)}
                     className="h-11 rounded-xl text-sm font-medium"
+                    {...form4.register("startDate", {
+                      onChange: (e) => handleStartDateChange(e.target.value),
+                    })}
                   />
                   {form4.formState.errors.startDate && (
                     <p className="text-[11px] text-red-600 font-medium">
@@ -1367,34 +1263,38 @@ export function ApplyForm({
 
                 <div className="space-y-1.5">
                   <Label htmlFor="endDate" className="text-xs font-bold text-slate-700">
-                    End Date (1 Month Duration)
+                    Calculated Completion Date
                   </Label>
                   <Input
                     id="endDate"
                     type="date"
                     readOnly
-                    value={form4.watch("endDate") || defaultEndDateStr}
-                    className="h-11 rounded-xl text-sm font-medium bg-slate-50 text-slate-500 cursor-not-allowed"
+                    disabled
+                    className="h-11 rounded-xl text-sm bg-slate-50 font-medium text-slate-600 cursor-not-allowed"
+                    {...form4.register("endDate")}
                   />
-                  <p className="text-[10px] text-slate-400">
-                    Auto-computed: exactly 1 month from start date.
+                  <p className="text-[11px] text-slate-400">
+                    Standard 1-month duration (start + 1 month - 1 day).
                   </p>
                 </div>
               </div>
 
-              {/* Perks summary card */}
-              <div className="rounded-2xl bg-blue-50/70 border border-blue-100 p-4 sm:p-5 space-y-2.5">
-                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                  Included in this Internship
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-blue-800">
+              {/* Mode & Type Info */}
+              <div className="rounded-2xl bg-blue-50/60 border border-blue-100 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-900">Program Mode:</span>
+                  <Badge variant="outline" className="bg-white text-blue-700 border-blue-200 text-xs font-bold">
+                    100% Remote / Self-Paced
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span>Real-world practical milestones</span>
+                    <span>Real-world production engineering tasks</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span>Verified completion certificate</span>
+                    <span>Mentorship and automated milestone tests</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0" />
@@ -1429,171 +1329,9 @@ export function ApplyForm({
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Submitting Application...</span>
                   </>
-                ) : isLoggedIn ? (
+                ) : (
                   <>
                     <span>Submit Application</span>
-                    <CheckCircle2 className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    <span>Continue to Account</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        )}
-
-        {/* ──────── STEP 5: ACCOUNT & SECURITY (FOR NEW USERS) ──────── */}
-        {currentStep === 5 && !isLoggedIn && (
-          <form onSubmit={onStep5Submit} className="space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <Lock className="h-5 w-5 text-blue-600" />
-                <span>Step 5: Account & Password</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Create a password for your CodeElevate student account. You will use this to log in to your dashboard.
-              </p>
-            </div>
-
-            <div className="space-y-5">
-              {/* Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-bold text-slate-700">
-                  Password <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Min 8 chars (letters + numbers)"
-                    className="pl-10 pr-10 h-11 rounded-xl text-sm"
-                    {...form5.register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {form5.formState.errors.password && (
-                  <p className="text-[11px] text-red-600 font-medium">
-                    {form5.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Confirm Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-xs font-bold text-slate-700">
-                  Confirm Password <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    id="confirmPassword"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Re-enter password"
-                    className="pl-10 pr-10 h-11 rounded-xl text-sm"
-                    {...form5.register("confirmPassword")}
-                  />
-                </div>
-                {form5.formState.errors.confirmPassword && (
-                  <p className="text-[11px] text-red-600 font-medium">
-                    {form5.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Referral Code */}
-              <div className="space-y-1.5">
-                <Label htmlFor="referralCode" className="text-xs font-bold text-slate-700">
-                  Referral Code (Optional)
-                </Label>
-                <Input
-                  id="referralCode"
-                  placeholder="e.g. CE-CAMPUS-2026"
-                  className="h-11 rounded-xl text-sm uppercase"
-                  {...form5.register("referralCode")}
-                />
-              </div>
-
-              {/* Consent checkbox */}
-              <div className="space-y-1 pt-2">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 select-none">
-                  <input
-                    type="checkbox"
-                    {...form5.register("agreeToTerms")}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>
-                    I agree to CodeElevate&apos;s{" "}
-                    <Link
-                      href="/terms"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 font-semibold underline hover:text-blue-800"
-                    >
-                      Terms & Conditions
-                    </Link>{" "}
-                    and{" "}
-                    <Link
-                      href="/privacy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 font-semibold underline hover:text-blue-800"
-                    >
-                      Privacy Policy
-                    </Link>
-                    . <span className="text-red-500">*</span>
-                  </span>
-                </label>
-                {form5.formState.errors.agreeToTerms && (
-                  <p className="text-[11px] text-red-600 font-medium">
-                    {form5.formState.errors.agreeToTerms.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Trust statement */}
-              <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-xs text-slate-500 leading-relaxed">
-                By submitting this application, your account will be created instantly and you will gain access to your student dashboard.
-              </div>
-            </div>
-
-            {/* Step 5 Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(4)}
-                className="h-11 px-5 rounded-xl text-sm font-bold gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back</span>
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-11 px-7 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/25 bg-blue-600 hover:bg-blue-700 text-white gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Submitting Application...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Submit & Create Account</span>
                     <CheckCircle2 className="h-4 w-4" />
                   </>
                 )}

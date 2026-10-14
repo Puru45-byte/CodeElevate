@@ -217,6 +217,9 @@ export function Navbar() {
               <Button asChild variant="ghost" size="sm" className="font-semibold text-slate-700">
                 <Link href="/login">Log In</Link>
               </Button>
+              <Button asChild variant="outline" size="sm" className="font-semibold text-blue-600 border-blue-200 hover:bg-blue-50">
+                <Link href="/register">Sign Up</Link>
+              </Button>
               <Button asChild size="sm" className="font-semibold shadow-sm">
                 <Link href="/internships">Explore Internships</Link>
               </Button>
@@ -300,12 +303,17 @@ export function Navbar() {
                 </button>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
-                </Button>
-                <Button asChild className="w-full">
-                  <Link href="/internships" onClick={() => setMobileMenuOpen(false)}>Explore</Link>
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+                  </Button>
+                  <Button asChild className="w-full">
+                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
+                  </Button>
+                </div>
+                <Button asChild variant="ghost" className="w-full justify-center text-slate-700">
+                  <Link href="/internships" onClick={() => setMobileMenuOpen(false)}>Explore Internships</Link>
                 </Button>
               </div>
             )}

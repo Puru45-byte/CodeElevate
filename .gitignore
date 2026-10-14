@@ -35,4 +35,6 @@ next-env.d.ts
 
 # Temporary output
 /tmp
+/.temp
+/supabase/.temp/
 
