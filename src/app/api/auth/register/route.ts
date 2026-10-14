@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { registerSchema } from "@/lib/validations/register";
 import { rateLimit } from "@/lib/rate-limit";
