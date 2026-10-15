@@ -1,5 +1,6 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 
 // Parse CLI args
@@ -11,11 +12,15 @@ console.log('SUPABASE AUTH DIAGNOSTIC TOOL');
 console.log('='.repeat(60));
 
 // Load .env.local or .env
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "..");
+
 function loadEnv() {
   const envPaths = ['.env.local', '.env'];
   const env = {};
   for (const p of envPaths) {
-    const fullPath = path.resolve(process.cwd(), p);
+    const fullPath = fs.existsSync(path.resolve(process.cwd(), p)) ? path.resolve(process.cwd(), p) : path.resolve(projectRoot, p);
     if (fs.existsSync(fullPath)) {
       const content = fs.readFileSync(fullPath, 'utf8');
       content.split('\n').forEach(line => {
@@ -147,7 +152,20 @@ async function runDiagnostics() {
       if (sanitized.access_token) sanitized.access_token = '[REDACTED_ACCESS_TOKEN]';
       if (sanitized.refresh_token) sanitized.refresh_token = '[REDACTED_REFRESH_TOKEN]';
       console.log(JSON.stringify(sanitized, null, 2));
-      console.log('error_code:', tokenJson.error_code || 'none');
+      // *** IMPORTANT: error_code clearly printed ***
+      const errorCode = tokenJson.error_code || 'none';
+      if (errorCode !== 'none') {
+        console.log('');
+        console.log('!!! ERROR CODE:', errorCode, '!!!');
+        if (errorCode === 'email_not_confirmed') {
+          console.log('>>> DIAGNOSIS: Email confirmation is required.');
+          console.log('    Fix: run  node scripts/confirm-users.mjs --apply');
+          console.log('    Or:  set EMAIL_VERIFICATION_ENABLED=false and re-register via admin API.');
+        }
+        console.log('');
+      } else {
+        console.log('error_code: none');
+      }
       console.log('msg / message / error_description:', tokenJson.msg || tokenJson.message || tokenJson.error_description || tokenJson.error || 'none');
     } else {
       console.log('Response was not JSON or empty');
@@ -202,3 +220,4 @@ async function runDiagnostics() {
 }
 
 runDiagnostics();
+

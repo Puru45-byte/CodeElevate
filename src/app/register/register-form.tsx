@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -6,13 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, RegisterFormValues } from "@/lib/validations/register";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   AlertCircle,
   ArrowRight,
+  CheckCircle2,
   Code2,
   Eye,
   EyeOff,
@@ -22,7 +22,6 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import { isSafeRedirect } from "@/lib/utils";
 
 export function RegisterForm() {
@@ -30,6 +29,7 @@ export function RegisterForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isExistingUser, setIsExistingUser] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
@@ -49,6 +49,7 @@ export function RegisterForm() {
     setIsLoading(true);
     setErrorMessage(null);
     setIsExistingUser(false);
+    setVerificationSent(false);
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -73,28 +74,62 @@ export function RegisterForm() {
         return;
       }
 
-      // Sign in client-side with the same credentials
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: resData.email,
-        password: data.password,
-      });
-
-      if (signInError) {
-        toast.error("Account created, but sign-in failed. Please log in manually.");
-        router.push(loginHref);
+      // PATH: email verification required — show message, do NOT sign in
+      if (resData.requiresVerification) {
+        setVerificationSent(true);
+        setIsLoading(false);
         return;
       }
 
-      toast.success("Account created! Welcome to CodeElevate.");
+      // PATH: sign-in after create failed even after retry — go to login with toast
+      if (resData.redirectToLogin) {
+        toast.success(resData.message || "Account created. Please log in.");
+        const sep = loginHref.includes("?") ? "&" : "?"; router.push(`${loginHref}${sep}registered=1`);
+        return;
+      }
 
+      // PATH: success — server already set session cookies
+      toast.success("Account created! Welcome to CodeElevate.");
       const destination = isSafeRedirect(next) ? next : "/internships";
       router.push(destination);
       router.refresh();
-    } catch (err: any) {
-      setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred. Please try again.";
+      setErrorMessage(message);
       setIsLoading(false);
     }
+  }
+
+  // Show verification-sent state
+  if (verificationSent) {
+    return (
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-2">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-600 shadow-sm border border-green-100">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Check Your Email
+          </h1>
+          <p className="text-sm text-slate-500">
+            Please check your email to confirm your account before logging in.
+          </p>
+        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-xs font-medium text-green-800 flex items-start gap-2.5">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 mt-0.5" />
+          <span>
+            A confirmation email has been sent. Once confirmed, you can{" "}
+            <Link href={loginHref} className="underline font-bold hover:text-green-900">
+              log in here
+            </Link>
+            .
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -1,8 +1,8 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 /**
  * Validates that all required environment variable NAMES are present.
- * Never logs or returns the actual values – only the names.
+ * Never logs or returns the actual values — only the names.
  */
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -12,13 +12,23 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().min(1),
   NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  /**
+   * Controls whether Supabase email confirmation is required on sign-up.
+   * "false" (default): admin.createUser with email_confirm:true is used so
+   *   users can sign in immediately without checking email.
+   * "true": normal signUp is used and users must confirm their email first.
+   */
+  EMAIL_VERIFICATION_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false"),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /**
  * Call once at server startup (e.g. in instrumentation.ts or a route handler).
- * Throws a descriptive error listing every MISSING key – never prints values.
+ * Throws a descriptive error listing every MISSING key — never prints values.
  */
 export function validateEnv(): Env {
   const result = envSchema.safeParse(process.env);
@@ -28,7 +38,7 @@ export function validateEnv(): Env {
       (issue) => `  • ${issue.path.join(".")}: ${issue.message}`
     );
     throw new Error(
-      `❌ Missing or invalid environment variables:\n${missing.join("\n")}\n\n` +
+      `Missing or invalid environment variables:\n${missing.join("\n")}\n\n` +
         "Check your .env file and ensure all required keys are set."
     );
   }

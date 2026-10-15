@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -10,9 +10,21 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, ArrowRight, CheckCircle2, Code2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Code2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+} from "lucide-react";
 import { toast } from "sonner";
 import { isSafeRedirect } from "@/lib/utils";
+import { business } from "@/config/business";
+
 
 const loginSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
@@ -21,14 +33,88 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+/**
+ * Maps Supabase auth error codes / messages to safe, user-facing strings.
+ * The real error is always logged server-side (or in dev console).
+ * Never expose internal details in production.
+ */
+function mapAuthError(
+  error: { code?: string; message?: string; status?: number } | null
+): React.ReactNode {
+  if (!error) return "An unexpected error occurred. Please try again.";
+
+  const code = error.code ?? "";
+  const msg = (error.message ?? "").toLowerCase();
+
+  // email_not_confirmed
+  if (
+    code === "email_not_confirmed" ||
+    msg.includes("email not confirmed") ||
+    msg.includes("email_not_confirmed")
+  ) {
+    return (
+      <>
+        Your email is not confirmed yet. Please{" "}
+        <a
+          href={`mailto:${business.supportEmail}?subject=Email%20confirmation%20help`}
+          className="underline font-bold hover:text-red-900"
+        >
+          contact support
+        </a>{" "}
+        for help.
+      </>
+    );
+  }
+
+  // invalid_credentials / wrong password
+  if (
+    code === "invalid_credentials" ||
+    msg.includes("invalid login") ||
+    msg.includes("invalid credentials") ||
+    msg.includes("wrong password") ||
+    msg.includes("incorrect password")
+  ) {
+    return "Incorrect email or password.";
+  }
+
+  // rate limit
+  if (
+    code === "over_request_rate_limit" ||
+    code === "too_many_requests" ||
+    msg.includes("too many") ||
+    msg.includes("rate limit") ||
+    error.status === 429
+  ) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+
+  // user not found (don't distinguish from wrong password for security)
+  if (code === "user_not_found" || msg.includes("user not found")) {
+    return "Incorrect email or password.";
+  }
+
+  // Fallback — generic safe message in all environments
+  return "We couldn't sign you in. Please check your email and password and try again.";
+}
+
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorNode, setErrorNode] = useState<React.ReactNode>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextParam = searchParams.get("next") || searchParams.get("redirect") || "";
-  const message = searchParams.get("message") || "";
+  const nextParam =
+    searchParams.get("next") || searchParams.get("redirect") || "";
+  const registered = searchParams.get("registered") === "1";
+  const message =
+    searchParams.get("message") ||
+    (registered ? "Account created. Please log in." : "");
+
+  React.useEffect(() => {
+    if (registered) {
+      toast.success("Account created. Please log in.");
+    }
+  }, [registered]);
 
   const {
     register,
@@ -36,15 +122,12 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
-    setErrorMessage(null);
+    setErrorNode(null);
 
     try {
       const supabase = createClient();
@@ -55,25 +138,30 @@ export function LoginForm() {
         });
 
       if (signInError) {
+        // Log full error in dev only — never in production
         if (process.env.NODE_ENV === "development") {
-          console.error("Supabase Auth Error:", signInError);
-          setErrorMessage(signInError.message || "Invalid email or password.");
-        } else {
-          setErrorMessage("We couldn't sign you in. Please check your email and password and try again.");
+          console.error("[login] Supabase auth error:", {
+            code: signInError.code,
+            message: signInError.message,
+            status: signInError.status,
+          });
         }
+        setErrorNode(mapAuthError(signInError));
         setIsLoading(false);
         return;
       }
 
       if (!authData.user) {
-        setErrorMessage("We couldn't sign you in. Please check your email and password and try again.");
+        setErrorNode(
+          "We couldn't sign you in. Please check your email and password and try again."
+        );
         setIsLoading(false);
         return;
       }
 
       toast.success("Welcome back!");
 
-      // Check role to redirect appropriately
+      // Fetch role for redirect
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -90,13 +178,13 @@ export function LoginForm() {
         router.push("/dashboard");
       }
       router.refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (process.env.NODE_ENV === "development") {
-        console.error("Login exception:", err);
-        setErrorMessage(err.message || "An unexpected error occurred.");
-      } else {
-        setErrorMessage("An unexpected error occurred. Please try again later.");
+        console.error("[login] Unexpected exception:", err);
       }
+      setErrorNode(
+        "An unexpected error occurred. Please try again later."
+      );
       setIsLoading(false);
     }
   }
@@ -122,10 +210,10 @@ export function LoginForm() {
         </div>
       )}
 
-      {errorMessage && (
+      {errorNode && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 flex items-start gap-2.5">
           <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
-          <span>{errorMessage}</span>
+          <span>{errorNode}</span>
         </div>
       )}
 
@@ -155,7 +243,10 @@ export function LoginForm() {
         {/* Password */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-xs font-bold text-slate-700">
+            <Label
+              htmlFor="password"
+              className="text-xs font-bold text-slate-700"
+            >
               Password
             </Label>
             <Link
@@ -213,7 +304,7 @@ export function LoginForm() {
         </Button>
       </form>
 
-      {/* New to CodeElevate? box */}
+      {/* New to CodeElevate? */}
       <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-center space-y-2.5">
         <p className="text-xs font-semibold text-slate-700">
           New to CodeElevate?
@@ -223,7 +314,11 @@ export function LoginForm() {
           variant="outline"
           className="w-full h-10 rounded-xl text-xs font-bold border-slate-200 hover:bg-slate-100 text-slate-800"
         >
-          <Link href={`/register${nextParam ? `?next=${encodeURIComponent(nextParam)}` : ""}`}>
+          <Link
+            href={`/register${
+              nextParam ? `?next=${encodeURIComponent(nextParam)}` : ""
+            }`}
+          >
             Create an account
           </Link>
         </Button>
