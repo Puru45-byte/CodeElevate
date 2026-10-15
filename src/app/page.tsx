@@ -24,7 +24,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { Internship } from "@/types/database";
-import { DOMAIN_ICONS, DOMAIN_CATEGORIES } from "@/lib/constants";
+import { DOMAIN_ICONS, DOMAIN_CATEGORIES, DOMAIN_TO_CATEGORY } from "@/lib/constants";
 
 export const revalidate = 60;
 
@@ -414,13 +414,17 @@ export default async function HomePage() {
             {DOMAIN_CATEGORIES.map((domain) => {
               const iconSrc =
                 DOMAIN_ICONS[domain] || DOMAIN_ICONS.default;
-              const courseCount = courses.filter(
-                (c) => c.category === domain
-              ).length;
+              const targetCategory = DOMAIN_TO_CATEGORY[domain] || domain;
+              const courseCount = courses.filter((c) => {
+                const cat = (c.category || "").toLowerCase();
+                const target = targetCategory.toLowerCase();
+                const dom = domain.toLowerCase();
+                return cat === target || cat === dom || target.includes(cat) || cat.includes(target);
+              }).length;
               return (
                 <Link
                   key={domain}
-                  href={`/internships?category=${encodeURIComponent(domain)}`}
+                  href={`/internships?category=${encodeURIComponent(targetCategory)}`}
                   className="group flex flex-col items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:shadow-card-hover hover:border-blue-200 transition-all duration-300 text-center"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50/80 p-2.5 ring-1 ring-blue-100 transition-transform duration-300 group-hover:scale-110">

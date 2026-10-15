@@ -2,36 +2,37 @@ import React from "react";
 import Link from "next/link";
 import {
   Code2,
-  Github,
-  Linkedin,
-  Twitter,
-  ShieldCheck,
   Mail,
   Phone,
   Clock,
+  ShieldCheck,
+  Github,
+  Linkedin,
+  Twitter,
 } from "lucide-react";
-import { APP_TAGLINE } from "@/lib/constants";
 import { business } from "@/config/business";
+import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { ROUTES } from "@/lib/routes";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-slate-200 bg-white print:hidden">
-      <div className="container max-w-7xl py-12 md:py-16">
-        {/* Top 4 Columns Grid */}
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-8">
-          {/* Brand Info & Support */}
-          <div className="space-y-4 sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+    <footer className="border-t border-slate-200/80 bg-white pt-16 pb-12">
+      <div className="container">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-5">
+          {/* Brand & Mission */}
+          <div className="lg:col-span-2 space-y-4">
+            <Link href={ROUTES.home} className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
                 <Code2 className="h-5 w-5" />
               </div>
-              <span className="text-lg font-black text-slate-900 tracking-tight">
-                {business.brandName}
+              <span className="text-xl font-black tracking-tight text-slate-900">
+                {APP_NAME}
               </span>
             </Link>
-            <p className="text-xs text-slate-500 font-medium">
+
+            <p className="text-sm font-semibold text-slate-700">
               {APP_TAGLINE}
             </p>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -93,7 +94,7 @@ export function Footer() {
             <ul className="space-y-2 text-xs sm:text-sm text-slate-600">
               <li>
                 <Link
-                  href="/internships"
+                  href={ROUTES.internships}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Browse Internships
@@ -101,7 +102,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/how-it-works"
+                  href={ROUTES.howItWorks}
                   className="hover:text-blue-600 transition-colors"
                 >
                   How It Works
@@ -109,7 +110,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/verify"
+                  href={ROUTES.verify}
                   className="hover:text-blue-600 transition-colors flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
@@ -127,7 +128,7 @@ export function Footer() {
             <ul className="space-y-2 text-xs sm:text-sm text-slate-600">
               <li>
                 <Link
-                  href="/login"
+                  href={ROUTES.login}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Login
@@ -135,7 +136,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/dashboard"
+                  href={ROUTES.dashboard.home}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Dashboard
@@ -143,7 +144,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/dashboard/certificates"
+                  href={ROUTES.dashboard.certificates()}
                   className="hover:text-blue-600 transition-colors"
                 >
                   My Certificates
@@ -160,7 +161,7 @@ export function Footer() {
             <ul className="space-y-2 text-xs sm:text-sm text-slate-600">
               <li>
                 <Link
-                  href="/about"
+                  href={ROUTES.about}
                   className="hover:text-blue-600 transition-colors"
                 >
                   About Us
@@ -168,7 +169,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/contact"
+                  href={ROUTES.contact}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Contact Us
@@ -185,7 +186,7 @@ export function Footer() {
             <ul className="space-y-2 text-xs sm:text-sm text-slate-600">
               <li>
                 <Link
-                  href="/terms"
+                  href={ROUTES.terms}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Terms & Conditions
@@ -193,7 +194,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/privacy"
+                  href={ROUTES.privacy}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Privacy Policy
@@ -201,7 +202,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/cookies"
+                  href={ROUTES.cookies}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Cookie Policy
@@ -209,7 +210,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/refund-policy"
+                  href={ROUTES.refundPolicy}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Refund & Cancellation Policy
@@ -217,7 +218,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/shipping-policy"
+                  href={ROUTES.shippingPolicy}
                   className="hover:text-blue-600 transition-colors"
                 >
                   Shipping & Delivery Policy
@@ -233,22 +234,22 @@ export function Footer() {
             © {currentYear} {business.legalName}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.terms} className="hover:text-blue-600 transition-colors">
               Terms & Conditions
             </Link>
-            <Link href="/privacy" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.privacy} className="hover:text-blue-600 transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/cookies" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.cookies} className="hover:text-blue-600 transition-colors">
               Cookie Policy
             </Link>
-            <Link href="/refund-policy" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.refundPolicy} className="hover:text-blue-600 transition-colors">
               Refund & Cancellation
             </Link>
-            <Link href="/shipping-policy" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.shippingPolicy} className="hover:text-blue-600 transition-colors">
               Shipping & Delivery
             </Link>
-            <Link href="/contact" className="hover:text-blue-600 transition-colors">
+            <Link href={ROUTES.contact} className="hover:text-blue-600 transition-colors">
               Contact & Grievances
             </Link>
           </div>

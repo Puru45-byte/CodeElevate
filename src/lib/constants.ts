@@ -71,6 +71,15 @@ export const DOMAIN_ICONS: Record<string, string> = {
   default: "/icons/open-book.png",
 };
 
+export const DOMAIN_TO_CATEGORY: Record<string, string> = {
+  "Web Development": "Development",
+  "Artificial Intelligence": "AI/ML",
+  "Cloud Computing": "Cloud",
+  "Software Engineering": "Development",
+  "Data Science": "Data",
+  "Cybersecurity": "Cyber Security",
+};
+
 // ─── Dropdown Options for Application ─────────────────────────────
 export const INDIAN_STATES = [
   "Andhra Pradesh",

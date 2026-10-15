@@ -21,6 +21,48 @@ const CATEGORIES = [
   "Other",
 ];
 
+const CATEGORY_ALIAS_MAP: Record<string, string> = {
+  all: "All",
+  "web development": "Development",
+  development: "Development",
+  "software engineering": "Development",
+  software: "Development",
+  frontend: "Development",
+  backend: "Development",
+  fullstack: "Development",
+  "ai/ml": "AI/ML",
+  ai: "AI/ML",
+  ml: "AI/ML",
+  "artificial intelligence": "AI/ML",
+  "machine learning": "AI/ML",
+  cloud: "Cloud",
+  "cloud computing": "Cloud",
+  devops: "Cloud",
+  data: "Data",
+  "data science": "Data",
+  "data analytics": "Data",
+  analytics: "Data",
+  "cyber security": "Cyber Security",
+  cybersecurity: "Cyber Security",
+  security: "Cyber Security",
+  design: "Design",
+  "ui/ux": "Design",
+  "ui/ux design": "Design",
+  other: "Other",
+};
+
+function normalizeCategory(cat?: string | null): string {
+  if (!cat) return "All";
+  const trimmed = cat.trim();
+  const lower = trimmed.toLowerCase();
+  if (CATEGORY_ALIAS_MAP[lower]) {
+    return CATEGORY_ALIAS_MAP[lower];
+  }
+  const found = CATEGORIES.find((c) => c.toLowerCase() === lower);
+  if (found) return found;
+  return trimmed;
+}
+
 export function InternshipsContent({
   searchParamsPromise,
 }: {
@@ -30,7 +72,8 @@ export function InternshipsContent({
   const router = useRouter();
   const pathname = usePathname();
 
-  const initialCategory = searchParams.category || "All";
+  const rawCategory = searchParams.category || "All";
+  const initialCategory = normalizeCategory(rawCategory);
   const initialQuery = searchParams.q || "";
 
   const [internships, setInternships] = useState<Internship[]>([]);
@@ -71,18 +114,24 @@ export function InternshipsContent({
 
   // Filter internships client-side
   const filteredInternships = internships.filter((internship) => {
-    const currentCategory =
-      internship.category || internship.domain || "";
+    const rawCourseCategory = internship.category || internship.domain || "";
+    const courseCatNormalized = normalizeCategory(rawCourseCategory);
+    const selectedNormalized = normalizeCategory(selectedCategory);
+
     const matchesCategory =
-      selectedCategory === "All" ||
-      currentCategory === selectedCategory ||
-      currentCategory.toLowerCase().includes(selectedCategory.toLowerCase());
+      selectedNormalized === "All" ||
+      courseCatNormalized === selectedNormalized ||
+      rawCourseCategory.toLowerCase() === selectedCategory.toLowerCase() ||
+      rawCourseCategory.toLowerCase().includes(selectedCategory.toLowerCase()) ||
+      selectedCategory.toLowerCase().includes(rawCourseCategory.toLowerCase());
+
     const query = searchQuery.toLowerCase();
     const techList = internship.technologies || internship.skills || [];
     const matchesSearch =
       !query ||
       internship.title.toLowerCase().includes(query) ||
-      currentCategory.toLowerCase().includes(query) ||
+      rawCourseCategory.toLowerCase().includes(query) ||
+      courseCatNormalized.toLowerCase().includes(query) ||
       (internship.description || "").toLowerCase().includes(query) ||
       techList.some((s: string) => s.toLowerCase().includes(query));
 

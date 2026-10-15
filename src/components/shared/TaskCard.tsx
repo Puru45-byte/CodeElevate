@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CheckCircle2, Clock, ArrowRight } from "lucide-react";
+import { ROUTES } from "@/lib/routes";
 
 interface TaskCardProps {
   task: Task;
@@ -74,7 +75,7 @@ export function TaskCard({
 
       <CardFooter className="p-5 pt-2 border-t border-slate-50">
         <Link
-          href={`/my-learning/${enrollmentId}/task/${task.id}`}
+          href={ROUTES.dashboard.taskDetail(task.id, enrollmentId)}
           className="w-full"
         >
           <Button

@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
+import { ROUTES } from "@/lib/routes";
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -24,29 +25,29 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
   const pathname = usePathname();
 
   const studentLinks = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "My Applications", href: "/dashboard/applications", icon: FileText },
-    { label: "My Learning", href: "/dashboard/learning", icon: BookOpen },
-    { label: "My Tasks", href: "/dashboard/tasks", icon: CheckSquare },
-    { label: "My Submissions", href: "/dashboard/submissions", icon: Layers },
-    { label: "My Certificates", href: "/dashboard/certificates", icon: Award },
-    { label: "Profile", href: "/dashboard/profile", icon: User },
+    { label: "Dashboard", href: ROUTES.dashboard.home, icon: LayoutDashboard },
+    { label: "My Applications", href: ROUTES.dashboard.applications, icon: FileText },
+    { label: "My Learning", href: ROUTES.dashboard.learning(), icon: BookOpen },
+    { label: "My Tasks", href: ROUTES.dashboard.tasks, icon: CheckSquare },
+    { label: "My Submissions", href: ROUTES.dashboard.submissions(), icon: Layers },
+    { label: "My Certificates", href: ROUTES.dashboard.certificates(), icon: Award },
+    { label: "Profile", href: ROUTES.dashboard.profile, icon: User },
   ];
 
   const adminLinks = [
-    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { label: "Applications", href: "/admin/applications", icon: FileText },
-    { label: "Students", href: "/admin/students", icon: User },
-    { label: "Internships", href: "/admin/internships", icon: BookOpen },
-    { label: "Modules", href: "/admin/modules", icon: Layers },
-    { label: "Tasks", href: "/admin/tasks", icon: CheckSquare },
-    { label: "Submissions", href: "/admin/submissions", icon: CheckSquare },
-    { label: "Payments", href: "/admin/payments", icon: Layers },
-    { label: "Inquiries & Support", href: "/admin/messages", icon: MessageSquare },
-    { label: "Certificates", href: "/admin/certificates", icon: Award },
-    { label: "Certificate Templates", href: "/admin/templates", icon: Award },
-    { label: "Notifications", href: "/admin/notifications", icon: Sparkles },
-    { label: "Settings", href: "/admin/settings", icon: Shield },
+    { label: "Dashboard", href: ROUTES.admin.home, icon: LayoutDashboard },
+    { label: "Applications", href: ROUTES.admin.applications, icon: FileText },
+    { label: "Students", href: ROUTES.admin.students, icon: User },
+    { label: "Internships", href: ROUTES.admin.internships, icon: BookOpen },
+    { label: "Modules", href: ROUTES.admin.modules, icon: Layers },
+    { label: "Tasks", href: ROUTES.admin.tasks, icon: CheckSquare },
+    { label: "Submissions", href: ROUTES.admin.submissions, icon: CheckSquare },
+    { label: "Payments", href: ROUTES.admin.payments, icon: Layers },
+    { label: "Inquiries & Support", href: ROUTES.admin.messages, icon: MessageSquare },
+    { label: "Certificates", href: ROUTES.admin.certificates, icon: Award },
+    { label: "Certificate Templates", href: ROUTES.admin.templates, icon: Award },
+    { label: "Notifications", href: ROUTES.admin.notifications, icon: Sparkles },
+    { label: "Settings", href: ROUTES.admin.settings, icon: Shield },
   ];
 
   const links = isAdmin ? adminLinks : studentLinks;
@@ -65,8 +66,8 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               const Icon = link.icon;
               const isActive =
                 pathname === link.href ||
-                (link.href !== "/dashboard" &&
-                  link.href !== "/admin" &&
+                (link.href !== ROUTES.dashboard.home &&
+                  link.href !== ROUTES.admin.home &&
                   pathname.startsWith(link.href));
 
               return (
@@ -101,7 +102,7 @@ export function Sidebar({ isAdmin = false }: SidebarProps) {
               Explore other domain internships to expand your project portfolio.
             </p>
             <Link
-              href="/internships"
+              href={ROUTES.internships}
               className="inline-block text-xs font-bold text-blue-600 hover:underline"
             >
               Browse Internships →

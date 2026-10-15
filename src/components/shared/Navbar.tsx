@@ -16,9 +16,12 @@ import {
   Award,
   Shield,
   FileText,
+  CheckSquare,
+  User as UserIcon,
 } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { NotificationDropdown } from "@/components/shared/NotificationDropdown";
+import { ROUTES } from "@/lib/routes";
 
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
@@ -62,7 +65,7 @@ export function Navbar() {
     await supabase.auth.signOut();
     setUser(null);
     setProfileDropdownOpen(false);
-    router.push("/");
+    router.push(ROUTES.home);
     router.refresh();
   };
 
@@ -74,11 +77,13 @@ export function Navbar() {
     return null;
   }
 
+  const isAdmin = profileRole.toUpperCase() === "ADMIN";
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <div className="container flex h-16 items-center justify-between">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href={ROUTES.home} className="flex items-center gap-2.5 group">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-700 to-blue-500 text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
             <Code2 className="h-5 w-5" />
           </div>
@@ -141,7 +146,7 @@ export function Navbar() {
                       className="fixed inset-0 z-40"
                       onClick={() => setProfileDropdownOpen(false)}
                     />
-                    <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                    <div className="absolute right-0 top-12 z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                       <div className="px-3 py-2 border-b border-slate-100 mb-1">
                         <p className="text-xs font-bold text-slate-900 truncate">
                           {user.email}
@@ -151,52 +156,116 @@ export function Navbar() {
                         </span>
                       </div>
 
+                      {isAdmin && (
+                        <>
+                          <div className="px-3 py-1">
+                            <span className="text-[10px] font-bold tracking-wider text-purple-700 uppercase">
+                              Admin Console
+                            </span>
+                          </div>
+                          <Link
+                            href={ROUTES.admin.home}
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50"
+                          >
+                            <Shield className="h-4 w-4 text-purple-600" />
+                            Admin Console
+                          </Link>
+                          <Link
+                            href={ROUTES.admin.applications}
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                          >
+                            <FileText className="h-4 w-4 text-slate-400" />
+                            Applications
+                          </Link>
+                          <Link
+                            href={ROUTES.admin.students}
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                          >
+                            <UserIcon className="h-4 w-4 text-slate-400" />
+                            Students
+                          </Link>
+                          <Link
+                            href={ROUTES.admin.internships}
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                          >
+                            <BookOpen className="h-4 w-4 text-slate-400" />
+                            Internships
+                          </Link>
+                          <Link
+                            href={ROUTES.admin.certificates}
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                          >
+                            <Award className="h-4 w-4 text-slate-400" />
+                            Certificates
+                          </Link>
+
+                          <div className="my-1 border-t border-slate-100" />
+                          <div className="px-3 py-1">
+                            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                              Student View
+                            </span>
+                          </div>
+                        </>
+                      )}
+
                       <Link
-                        href="/dashboard"
+                        href={ROUTES.dashboard.home}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
                       >
-                        <LayoutDashboard className="h-4 w-4" />
+                        <LayoutDashboard className="h-4 w-4 text-slate-400" />
                         Student Dashboard
                       </Link>
 
                       <Link
-                        href="/my-learning"
+                        href={ROUTES.dashboard.learning()}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
                       >
-                        <BookOpen className="h-4 w-4" />
+                        <BookOpen className="h-4 w-4 text-slate-400" />
                         My Learning
                       </Link>
 
                       <Link
-                        href="/applications"
+                        href={ROUTES.dashboard.tasks}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
                       >
-                        <FileText className="h-4 w-4" />
+                        <CheckSquare className="h-4 w-4 text-slate-400" />
+                        My Tasks
+                      </Link>
+
+                      <Link
+                        href={ROUTES.dashboard.applications}
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                      >
+                        <FileText className="h-4 w-4 text-slate-400" />
                         Applications
                       </Link>
 
                       <Link
-                        href="/certificates"
+                        href={ROUTES.dashboard.certificates()}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
                       >
-                        <Award className="h-4 w-4" />
+                        <Award className="h-4 w-4 text-slate-400" />
                         Certificates
                       </Link>
 
-                      {profileRole === "ADMIN" && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-purple-700 hover:bg-purple-50"
-                        >
-                          <Shield className="h-4 w-4 text-purple-600" />
-                          Admin Console
-                        </Link>
-                      )}
+                      <Link
+                        href={ROUTES.dashboard.profile}
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                      >
+                        <UserIcon className="h-4 w-4 text-slate-400" />
+                        Profile
+                      </Link>
 
                       <div className="my-1 border-t border-slate-100" />
 
@@ -215,13 +284,13 @@ export function Navbar() {
           ) : (
             <>
               <Button asChild variant="ghost" size="sm" className="font-semibold text-slate-700">
-                <Link href="/login">Log In</Link>
+                <Link href={ROUTES.login}>Log In</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="font-semibold text-blue-600 border-blue-200 hover:bg-blue-50">
-                <Link href="/register">Sign Up</Link>
+                <Link href={ROUTES.register}>Sign Up</Link>
               </Button>
               <Button asChild size="sm" className="font-semibold shadow-sm">
-                <Link href="/internships">Explore Internships</Link>
+                <Link href={ROUTES.internships}>Explore Internships</Link>
               </Button>
             </>
           )}
@@ -260,8 +329,39 @@ export function Navbar() {
           <div className="border-t border-slate-100 pt-3 space-y-2">
             {user ? (
               <>
+                {isAdmin && (
+                  <div className="space-y-1 pb-2 border-b border-slate-100">
+                    <span className="px-3 text-[10px] font-bold tracking-wider text-purple-700 uppercase block">
+                      Admin Console
+                    </span>
+                    <Link
+                      href={ROUTES.admin.home}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-50"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Admin Console
+                    </Link>
+                    <Link
+                      href={ROUTES.admin.applications}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileText className="h-4 w-4 text-purple-600" />
+                      Admin Applications
+                    </Link>
+                    <Link
+                      href={ROUTES.admin.students}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <UserIcon className="h-4 w-4 text-purple-600" />
+                      Admin Students
+                    </Link>
+                  </div>
+                )}
                 <Link
-                  href="/dashboard"
+                  href={ROUTES.dashboard.home}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
@@ -269,7 +369,7 @@ export function Navbar() {
                   Dashboard
                 </Link>
                 <Link
-                  href="/my-learning"
+                  href={ROUTES.dashboard.learning()}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
@@ -277,23 +377,37 @@ export function Navbar() {
                   My Learning
                 </Link>
                 <Link
-                  href="/certificates"
+                  href={ROUTES.dashboard.tasks}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <CheckSquare className="h-4 w-4 text-blue-600" />
+                  My Tasks
+                </Link>
+                <Link
+                  href={ROUTES.dashboard.applications}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  Applications
+                </Link>
+                <Link
+                  href={ROUTES.dashboard.certificates()}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   <Award className="h-4 w-4 text-blue-600" />
                   Certificates
                 </Link>
-                {profileRole === "ADMIN" && (
-                  <Link
-                    href="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-50"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Admin Console
-                  </Link>
-                )}
+                <Link
+                  href={ROUTES.dashboard.profile}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <UserIcon className="h-4 w-4 text-blue-600" />
+                  Profile
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
@@ -306,14 +420,14 @@ export function Navbar() {
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-2 gap-2">
                   <Button asChild variant="outline" className="w-full">
-                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+                    <Link href={ROUTES.login} onClick={() => setMobileMenuOpen(false)}>Log In</Link>
                   </Button>
                   <Button asChild className="w-full">
-                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
+                    <Link href={ROUTES.register} onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
                   </Button>
                 </div>
                 <Button asChild variant="ghost" className="w-full justify-center text-slate-700">
-                  <Link href="/internships" onClick={() => setMobileMenuOpen(false)}>Explore Internships</Link>
+                  <Link href={ROUTES.internships} onClick={() => setMobileMenuOpen(false)}>Explore Internships</Link>
                 </Button>
               </div>
             )}

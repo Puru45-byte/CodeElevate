@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { rateLimit } from "./lib/rate-limit";
+import { ROUTES } from "./lib/routes";
 
 export async function middleware(request: NextRequest) {
   // --- Rate Limiting for Sensitive Routes ---
@@ -25,6 +26,28 @@ export async function middleware(request: NextRequest) {
       }
       return new NextResponse("Too many requests. Please try again later.", { status: 429 });
     }
+  }
+
+  // --- Canonical Redirects for Legacy / Un-nested Routes ---
+  if (pathname === "/my-learning" || pathname.startsWith("/my-learning/")) {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = ROUTES.dashboard.learning();
+    return NextResponse.redirect(nextUrl);
+  }
+  if (pathname === "/applications") {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = ROUTES.dashboard.applications;
+    return NextResponse.redirect(nextUrl);
+  }
+  if (pathname === "/certificates") {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = ROUTES.dashboard.certificates();
+    return NextResponse.redirect(nextUrl);
+  }
+  if (pathname === "/profile") {
+    const nextUrl = request.nextUrl.clone();
+    nextUrl.pathname = ROUTES.dashboard.profile;
+    return NextResponse.redirect(nextUrl);
   }
 
   let response = NextResponse.next({
@@ -63,8 +86,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-
-
   // Protect student dashboard routes
   if (
     !user &&
@@ -74,7 +95,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/certificates") ||
       pathname.startsWith("/profile"))
   ) {
-    const redirectUrl = new URL("/login", request.url);
+    const redirectUrl = new URL(ROUTES.login, request.url);
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
@@ -82,25 +103,25 @@ export async function middleware(request: NextRequest) {
   // Protect admin routes
   if (pathname.startsWith("/admin")) {
     if (!user) {
-      const redirectUrl = new URL("/login", request.url);
+      const redirectUrl = new URL(ROUTES.login, request.url);
       redirectUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(redirectUrl);
     }
   }
 
-function isSafeRedirect(path?: string | null): path is string {
-  if (!path || typeof path !== "string") return false;
-  if (!path.startsWith("/") || path.startsWith("//")) return false;
-  if (path.includes("\\")) return false;
-  try {
-    const url = new URL(path, "https://codeelevate.local");
-    if (url.origin !== "https://codeelevate.local") return false;
-    if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) return false;
-    return true;
-  } catch {
-    return false;
+  function isSafeRedirect(path?: string | null): path is string {
+    if (!path || typeof path !== "string") return false;
+    if (!path.startsWith("/") || path.startsWith("//")) return false;
+    if (path.includes("\\")) return false;
+    try {
+      const url = new URL(path, "https://codeelevate.local");
+      if (url.origin !== "https://codeelevate.local") return false;
+      if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) return false;
+      return true;
+    } catch {
+      return false;
+    }
   }
-}
 
   // Redirect authenticated user away from login/register
   if (user && (pathname === "/login" || pathname === "/register")) {
@@ -108,7 +129,7 @@ function isSafeRedirect(path?: string | null): path is string {
     if (isSafeRedirect(nextParam)) {
       return NextResponse.redirect(new URL(nextParam, request.url));
     }
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL(ROUTES.dashboard.home, request.url));
   }
 
   return response;
